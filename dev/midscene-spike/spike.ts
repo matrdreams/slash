@@ -1,0 +1,10 @@
+import { AndroidDevice } from '@midscene/android';
+const T=async(n:string,f:()=>Promise<any>)=>{const t=Date.now();try{const r=await f();console.log(n,(Date.now()-t)+'ms',typeof r==='string'?r.length:JSON.stringify(r)?.slice(0,120));return r}catch(e:any){console.log(n,'ERR',(Date.now()-t)+'ms',e.message?.slice(0,200))}};
+(async()=>{const d=new AndroidDevice('127.0.0.1:15555');
+await T('connect',()=>d.connect());
+const s=await T('screenshotBase64',()=>d.screenshotBase64());
+if(s) require('fs').writeFileSync('/workspace/grok-logs/midscene-shot.png',Buffer.from(s.split(',')[1],'base64'));
+await T('size',()=>d.size());
+await T('nodeTree',()=>(d as any).getElementsNodeTree());
+await T('launch settings',()=>(d as any).launch('com.android.settings'));
+process.exit(0)})();
