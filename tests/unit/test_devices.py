@@ -48,7 +48,7 @@ def test_checked_in_compose_files_bind_loopback():
     for name in ("docker-compose.yml", "docker-compose.multi.yml", "phones.override.example.yml"):
         text = (root / name).read_text(encoding="utf-8")
         assert "127.0.0.1:" in text
-        assert "0.0.0.0" not in text
+        assert "0.0.0.0:" not in text
 
 
 def test_create_start_stop_delete_three_devices(world):

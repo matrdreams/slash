@@ -21,7 +21,6 @@ from slash.store.tables import (
     TaskRow,
     UserRow,
 )
-from slash.store.timeutil import utcnow
 
 
 class Store:

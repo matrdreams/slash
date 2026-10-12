@@ -4,9 +4,8 @@
 and never need a cluster. kind cannot load binder_linux; this backend does not pretend it can.
 """
 
-from collections.abc import Awaitable, Callable
-
 import tempfile
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 import yaml

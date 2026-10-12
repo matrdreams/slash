@@ -11,8 +11,8 @@ from slash.agent.policy import sensitive_reason
 from slash.agent.redact import should_redact
 from slash.agent.tree import compress, parse_hierarchy
 from slash.agent.watchers import match_watcher
-from slash.core.models import TaskStatus, assert_transition
 from slash.core.errors import InvalidTransition
+from slash.core.models import TaskStatus, assert_transition
 from slash.llm.coords import to_pixels
 from slash.llm.ui_tars import parse_ui_tars_text
 

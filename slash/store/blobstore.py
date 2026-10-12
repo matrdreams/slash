@@ -1,9 +1,9 @@
 """Local blob directory for screenshots, UI trees, and takeover recordings."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from slash.store.timeutil import utcnow
+from slash.store.timeutil import as_utc, utcnow
 
 
 class BlobStore:
@@ -25,12 +25,12 @@ class BlobStore:
     def purge_older_than(self, days: int, now: datetime | None = None) -> int:
         if days < 0:
             return 0
-        cutoff = (now or utcnow()) - timedelta(days=days)
+        cutoff = as_utc(now or utcnow()) - timedelta(days=days)
         removed = 0
         for path in self.root.rglob("*"):
             if not path.is_file():
                 continue
-            modified = datetime.fromtimestamp(path.stat().st_mtime)
+            modified = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
             if modified < cutoff:
                 path.unlink()
                 removed += 1

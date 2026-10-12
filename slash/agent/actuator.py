@@ -21,7 +21,7 @@ from slash.agent.actions import (
     Wait,
 )
 from slash.agent.tree import UINode, center, find_node
-from slash.core.errors import AdbError, PolicyViolation
+from slash.core.errors import PolicyViolation
 from slash.devices.adb import SupportsAdb
 
 ADB_IME = "com.android.adbkeyboard/.AdbIME"

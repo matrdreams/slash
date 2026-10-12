@@ -137,7 +137,6 @@ def test_need_human_reply_and_cancel(world):
 def test_cancel_pending_task(world):
     ctx = world(actions=[{"type": "done", "success": True, "result": "ok"}])
     # Insert a pending task and cancel it without running.
-    from slash.core.models import DeviceCreate
 
     import asyncio
 
@@ -167,7 +166,6 @@ def test_takeover_token_is_one_time(world):
 
     import asyncio
 
-    from slash.core.models import DeviceCreate
 
     device = asyncio.run(ctx.manager.create(DeviceCreate(name="u1"), user_id=ctx.user_id))
     issued = ctx.takeover.issue(device_id=device.id, task_id=None, reason="manual")
@@ -175,10 +173,12 @@ def test_takeover_token_is_one_time(world):
     first = client.get("/api/v1/takeover/verify", headers={"X-Forwarded-Uri": f"/takeover/{token}/"})
     assert first.status_code == 200
     assert "slash_takeover" in first.cookies
+    cookie = first.cookies["slash_takeover"]
+    client.cookies.clear()
     replay = client.get("/api/v1/takeover/verify", headers={"X-Forwarded-Uri": f"/takeover/{token}/"})
     assert replay.status_code == 401
-    cookie = first.cookies["slash_takeover"]
-    again = client.get("/api/v1/takeover/verify", cookies={"slash_takeover": cookie})
+    client.cookies.set("slash_takeover", cookie)
+    again = client.get("/api/v1/takeover/verify")
     assert again.status_code == 200
 
     row = ctx.takeover.require(issued.id)

@@ -1,13 +1,13 @@
 """Domain enums, the task state machine, and API bodies."""
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class DeviceState(str, Enum):
+class DeviceState(StrEnum):
     CREATED = "CREATED"
     STOPPED = "STOPPED"
     STARTING = "STARTING"
@@ -16,7 +16,7 @@ class DeviceState(str, Enum):
     DELETED = "DELETED"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     PENDING = "PENDING"
     PREPARING = "PREPARING"
     RUNNING = "RUNNING"

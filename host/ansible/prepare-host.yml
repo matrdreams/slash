@@ -1,36 +1,22 @@
 ---
-# Copy host/ onto the machine and run install.sh.
-# Ansible is optional. The shell entrypoint is host/install.sh.
+# Optional. Copy this repo to the host first, then point slash_repo at it.
 - name: Prepare a slash Redroid host
   hosts: slash_hosts
   become: true
   vars:
-    slash_host_dest: /opt/slash/host
+    slash_repo: /opt/slash
   tasks:
-    - name: Install rsync
-      ansible.builtin.package:
-        name: rsync
-        state: present
-
-    - name: Copy host scripts
-      ansible.posix.synchronize:
-        src: "{{ playbook_dir }}/../"
-        dest: "{{ slash_host_dest }}/"
-        delete: false
-        rsync_opts:
-          - "--exclude=ansible"
-
-    - name: Run install.sh
-      ansible.builtin.command: "{{ slash_host_dest }}/install.sh"
+    - name: Run host/install.sh
+      ansible.builtin.command: "{{ slash_repo }}/host/install.sh"
       args:
         creates: /etc/modules-load.d/redroid.conf
 
-    - name: Show check.sh
-      ansible.builtin.command: "{{ slash_host_dest }}/check.sh --json"
+    - name: Record check.sh
+      ansible.builtin.command: "{{ slash_repo }}/host/check.sh --json"
       register: slash_check
       changed_when: false
       failed_when: false
 
-    - name: Print check JSON
+    - name: Show check JSON
       ansible.builtin.debug:
         var: slash_check.stdout

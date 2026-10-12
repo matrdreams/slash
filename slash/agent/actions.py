@@ -1,6 +1,6 @@
 """Action schema. Coordinates are device pixels after the provider adapter runs."""
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
 
@@ -86,7 +86,7 @@ class Done(BaseModel):
 
 
 Action = Annotated[
-    Union[Tap, LongPress, Swipe, TypeText, KeyAction, Launch, Wait, ScreenshotAction, AskHuman, Done],
+    Tap | LongPress | Swipe | TypeText | KeyAction | Launch | Wait | ScreenshotAction | AskHuman | Done,
     Field(discriminator="type"),
 ]
 

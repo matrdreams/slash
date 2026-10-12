@@ -38,4 +38,7 @@ def extract_tree(archive: Path, dest: Path) -> None:
             child.unlink()
     with tarfile.open(archive, "r:gz") as tar:
         members = _safe_members(tar, dest)
-        tar.extractall(dest, members=members)
+        try:
+            tar.extractall(dest, members=members, filter="data")
+        except TypeError:
+            tar.extractall(dest, members=members)

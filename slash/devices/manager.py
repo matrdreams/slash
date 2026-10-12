@@ -8,7 +8,7 @@ from pathlib import Path
 
 from slash.core.config import SlashConfig
 from slash.core.errors import BootTimeoutError, ConflictError, NotFoundError, SignatureMismatchError
-from slash.core.events import Event, EventBus
+from slash.core.events import EventBus
 from slash.core.metrics import Metrics
 from slash.core.models import DeviceCreate, DeviceOut, DeviceRuntimeState, DeviceState
 from slash.devices.adb import SupportsAdb
@@ -23,7 +23,7 @@ from slash.devices.specs import DeviceSpec, parse_mem_mb, parse_resolution, vali
 from slash.store.db import Store
 from slash.store.ids import new_id
 from slash.store.tables import AppInstallRow, DeviceRow, SnapshotRow
-from slash.store.timeutil import utcnow
+from slash.store.timeutil import as_utc, utcnow
 
 # Component names follow upstream (ADBKeyBoard README, Mobilerun device-setup docs).
 ADB_IME = "com.android.adbkeyboard/.AdbIME"
@@ -291,7 +291,7 @@ class DeviceManager:
                 continue
             if self.store.active_task_for_device(row.id) is not None:
                 continue
-            if moment - row.last_active_at < timeout:
+            if as_utc(moment) - as_utc(row.last_active_at) < timeout:
                 continue
             await self.stop(row.id, sync=True)
             stopped.append(row.id)
