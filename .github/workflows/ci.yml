@@ -34,5 +34,5 @@ jobs:
             third_party/ws-scrcpy/fetch.sh
       - name: Compose config
         run: |
-          docker compose --profile takeover -f deploy/compose/docker-compose.yml config >/dev/null
+          MIDSCENE_MODEL_API_KEY=ci docker compose --profile takeover --profile agent -f deploy/compose/docker-compose.yml config >/dev/null
           docker compose --profile takeover -f deploy/compose/docker-compose.multi.yml config >/dev/null

@@ -49,3 +49,23 @@ services:
 
 networks:
   net-u1: {}
+
+  # Midscene worker (vision agent). Model key comes from the host env, never a file.
+  # Uses host networking so it reaches the host adb server and 127.0.0.1:<adb port>.
+  midscene-worker:
+    profiles: ["agent"]
+    image: slash-midscene-worker:local
+    build:
+      context: ../../worker
+    network_mode: host
+    environment:
+      MIDSCENE_WORKER_HOST: 127.0.0.1
+      MIDSCENE_WORKER_PORT: "18790"
+      MIDSCENE_WORKER_REPORT_DIR: /reports
+      MIDSCENE_MODEL_BASE_URL: ${MIDSCENE_MODEL_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      MIDSCENE_MODEL_NAME: ${MIDSCENE_MODEL_NAME:-doubao-seed-2-1-turbo-260628}
+      MIDSCENE_MODEL_FAMILY: ${MIDSCENE_MODEL_FAMILY:-doubao-seed}
+      MIDSCENE_MODEL_API_KEY: ${MIDSCENE_MODEL_API_KEY:?set MIDSCENE_MODEL_API_KEY (e.g. from ARK_API_KEY)}
+    volumes:
+      - ${SLASH_DATA_ROOT:-/srv/slash/devices}/../reports:/reports
+    restart: unless-stopped
