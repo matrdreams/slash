@@ -1,0 +1,21 @@
+{
+  "name": "slash-midscene-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "typecheck": "tsc -p . --noEmit",
+    "start": "node dist/server.js",
+    "test": "MIDSCENE_WORKER_MOCK=1 node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@midscene/android": "1.15.2",
+    "@midscene/core": "1.15.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3"
+  }
+}
