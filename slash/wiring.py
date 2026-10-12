@@ -7,12 +7,8 @@ from pathlib import Path
 
 import yaml
 
-from slash.agent.actuator import Actuator
-from slash.agent.loop import AgentRuntime
-from slash.agent.observer import Observer
-from slash.agent.planners.mobilerun import MobilerunPlanner
-from slash.agent.planners.native import NativePlanner
-from slash.agent.watchers import load_rules
+from slash.agent.midscene_client import FakeMidsceneClient, MidsceneClient
+from slash.agent.runtime import MidsceneRuntime
 from slash.core.config import SlashConfig
 from slash.core.events import EventBus
 from slash.core.metrics import Metrics
@@ -26,7 +22,6 @@ from slash.devices.certs import ApksignerVerifier
 from slash.devices.fake_adb import FakeAdb
 from slash.devices.health import HealthMonitor
 from slash.devices.manager import DeviceManager
-from slash.llm.registry import build_provider
 from slash.store.blobstore import BlobStore
 from slash.store.db import Store
 from slash.takeover.recorder import Recorder
@@ -42,8 +37,8 @@ class AppContext:
     backend: object
     adb: object
     manager: DeviceManager
-    provider: object
-    runtime: AgentRuntime
+    worker: object
+    runtime: MidsceneRuntime
     takeover: TakeoverService
     health: HealthMonitor
     token: str
@@ -130,12 +125,20 @@ def make_backend(config: SlashConfig):
     return ComposeBackend(override)
 
 
+def make_worker(config: SlashConfig):
+    url = config.agent.worker_url
+    if url == "fake" or (config.devices.backend == "fake" and not config.agent.worker_url_explicit):
+        provider = config.llm.providers.get(config.llm.default)
+        return FakeMidsceneClient(list(getattr(provider, "script", None) or []))
+    return MidsceneClient(url, poll_s=config.agent.worker_poll_s)
+
+
 def build_context(
     config: SlashConfig,
     *,
     backend=None,
     adb=None,
-    provider=None,
+    worker=None,
     cert_verifier=None,
     inline_tasks: bool = False,
     sleeper=None,
@@ -153,8 +156,8 @@ def build_context(
         backend = make_backend(config)
     if adb is None:
         adb = FakeAdb() if config.devices.backend == "fake" else AdbClient()
-    if provider is None:
-        provider = build_provider(config.llm)
+    if worker is None:
+        worker = make_worker(config)
     pins = load_pins(config.devices.apps_registry)
     manager = DeviceManager(
         config,
@@ -167,14 +170,6 @@ def build_context(
         pins=pins,
         sleeper=sleeper,
     )
-    observer = Observer(
-        adb,
-        long_edge=config.agent.screenshot_long_edge,
-        tree_limit=config.agent.tree_max_nodes,
-    )
-    actuator = Actuator(adb, sleeper=sleeper)
-    planner_cls = MobilerunPlanner if config.agent.planner == "mobilerun" else NativePlanner
-    planner = planner_cls(provider, mode=config.agent.mode)
     tokens = TokenService(secret, ttl_s=config.takeover.ttl_s)
     recorder = Recorder(adb)
     takeover = TakeoverService(
@@ -186,18 +181,14 @@ def build_context(
         recorder=recorder,
         record=config.takeover.record,
     )
-    watcher_path = Path(config.agent.watchers_file) if config.agent.watchers_file else None
-    runtime = AgentRuntime(
+    runtime = MidsceneRuntime(
         store=store,
         blobs=blobs,
         manager=manager,
-        observer=observer,
-        actuator=actuator,
-        planner=planner,
+        client=worker,
         takeover=takeover,
         bus=bus,
         metrics=metrics,
-        watchers=load_rules(watcher_path),
     )
     health = HealthMonitor(manager, adb, bus=bus)
     return AppContext(
@@ -207,7 +198,7 @@ def build_context(
         backend=backend,
         adb=adb,
         manager=manager,
-        provider=provider,
+        worker=worker,
         runtime=runtime,
         takeover=takeover,
         health=health,

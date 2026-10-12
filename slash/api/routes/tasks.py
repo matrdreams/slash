@@ -138,3 +138,15 @@ async def reply_task(task_id: str, body: ReplyIn, request: Request):
 async def reply_task_slash(task_id: str, body: ReplyIn, request: Request):
     state = _state(request)
     return task_out_from(state.store, await state.runtime.reply(task_id, body.text))
+
+
+@router.post("/{task_id}:takeover")
+async def takeover_task(task_id: str, request: Request):
+    """User-requested takeover of a running task: stop the worker task, issue a takeover link."""
+    state = _state(request)
+    return task_out_from(state.store, await state.runtime.request_takeover(task_id))
+
+
+@router.post("/{task_id}/takeover")
+async def takeover_task_slash(task_id: str, request: Request):
+    return await takeover_task(task_id, request)

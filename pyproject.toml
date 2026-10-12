@@ -17,6 +17,7 @@ dependencies = [
   "pillow>=10.0",
   "python-multipart>=0.0.9",
   "websockets>=12",
+  "uiautomator2>=3.7,<4",
 ]
 
 [project.optional-dependencies]
@@ -37,7 +38,7 @@ build-backend = "setuptools.build_meta"
 include = ["slash*"]
 
 [tool.setuptools.package-data]
-"slash.agent" = ["rules/*.yaml"]
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

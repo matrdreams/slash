@@ -59,6 +59,11 @@ class AgentConfig(BaseModel):
     confirm_sensitive: bool = True
     tree_max_nodes: int = 80
     watchers_file: str | None = None
+    # Midscene worker (worker/). "fake" uses the in-process scripted client.
+    worker_url: str = "http://127.0.0.1:18790"
+    # With the fake device backend the fake worker is used unless this is true.
+    worker_url_explicit: bool = False
+    worker_poll_s: float = 1.0
 
 
 class ProviderConfig(BaseModel):

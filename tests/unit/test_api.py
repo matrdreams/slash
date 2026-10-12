@@ -84,10 +84,8 @@ def test_task_run_steps_and_events(world):
     assert body["status"] == "SUCCEEDED"
     assert body["steps_used"] == 1
     steps = client.get(f"/api/v1/tasks/{body['id']}/steps", headers=headers).json()
-    assert steps[0]["action"]["type"] == "done"
-    assert steps[0]["screenshot_url"].endswith("/screenshot")
-    png = client.get(steps[0]["screenshot_url"], headers=headers)
-    assert png.status_code == 200
+    assert steps[0]["action"]["engine"] == "midscene"
+    # Per-step screenshots now live in the Midscene HTML report (see "report" event).
     events = client.get(f"/api/v1/tasks/{body['id']}/events", headers=headers)
     assert events.status_code == 200
     assert "event: done" in events.text

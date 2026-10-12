@@ -6,8 +6,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from slash.agent.tree import UINode
-from slash.agent.watchers import WatcherRule, load_rules, match_watcher
 from slash.api.app import create_app
 from slash.compat.harness import default_apps_path, load_apps, render_matrix
 from slash.core.models import DeviceCreate
@@ -74,65 +72,6 @@ def test_takeover_proxy_rejects_replay(world):
     replay.cookies.clear()
     again = replay.get(f"/takeover/{token}/")
     assert again.status_code == 401
-
-
-def test_vision_only_skips_uiautomator_dump(world):
-    ctx = world(
-        mode="vision-only",
-        vision=True,
-        actions=[{"type": "done", "success": True, "result": "看到了"}],
-    )
-    client = _client(ctx)
-    headers = {"Authorization": "Bearer test-token"}
-    device = client.post("/api/v1/devices", headers=headers, json={"name": "u1"}).json()
-    task = client.post(
-        "/api/v1/tasks",
-        headers=headers,
-        json={"device_id": device["id"], "goal": "看截图", "mode": "vision-only"},
-    ).json()
-    assert task["status"] == "SUCCEEDED", task
-    assert not any("uiautomator" in str(call) for call in ctx.adb.calls)
-    assert any("screencap" in str(call) for call in ctx.adb.calls)
-
-
-def test_vision_only_requires_a_vision_provider(world):
-    ctx = world(mode="vision-only", vision=False, actions=[{"type": "done", "success": True, "result": "x"}])
-    client = _client(ctx)
-    headers = {"Authorization": "Bearer test-token"}
-    device = client.post("/api/v1/devices", headers=headers, json={"name": "u1"}).json()
-    task = client.post(
-        "/api/v1/tasks",
-        headers=headers,
-        json={"device_id": device["id"], "goal": "看截图", "mode": "vision-only"},
-    ).json()
-    assert task["status"] == "FAILED"
-    assert "vision" in task["error"]
-
-
-def test_package_watcher_is_preferred():
-    rules = load_rules()
-    assert any(rule.package == "com.android.permissioncontroller" for rule in rules)
-    nodes = [
-        UINode(1, "android.widget.Button", "同意", "", "", "com.example.app", (0, 0, 10, 10), True, False, True),
-        UINode(
-            2,
-            "android.widget.Button",
-            "仅在使用中允许",
-            "",
-            "",
-            "com.android.permissioncontroller",
-            (0, 20, 10, 40),
-            True,
-            False,
-            True,
-        ),
-    ]
-    assert match_watcher(nodes, rules).text == "仅在使用中允许"
-    custom_node = UINode(
-        3, "android.widget.Button", "自定义继续", "", "", "com.example.app", (0, 0, 10, 10), True, False, True
-    )
-    custom = [WatcherRule(texts=("自定义继续",), package="com.example.app"), WatcherRule(texts=("同意",))]
-    assert match_watcher([custom_node], custom).text == "自定义继续"
 
 
 def test_compat_matrix_template_lists_sixteen_apps():
