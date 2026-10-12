@@ -117,3 +117,15 @@ def test_grok_cli_vision_prompt_and_cost(tmp_path):
     assert "/tmp/x.png" in prompt and "read_file" in prompt
     assert "Do not call tools" in GrokCliProvider._prompt(prov, [Message(role="user", content="g")], [])
     assert _cost_cny({"total_cost_usd": 0.01}) == 0.071
+
+
+def test_tree_exposes_switch_checked_state():
+    from slash.agent.tree import compress
+
+    xml = (
+        '<hierarchy><node class="android.widget.Switch" text="" checkable="true" checked="true" '
+        'clickable="false" enabled="true" bounds="[600,600][700,700]" package="p" resource-id="android:id/switch_widget"/>'
+        "</hierarchy>"
+    )
+    _, text = compress(parse_hierarchy(xml))
+    assert "checked=true" in text and "Switch" in text

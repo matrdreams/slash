@@ -16,10 +16,12 @@ class UINode:
     clickable: bool
     long_clickable: bool
     enabled: bool
+    checkable: bool = False
+    checked: bool = False
 
     @property
     def interesting(self) -> bool:
-        return bool(self.text or self.desc or self.clickable or self.long_clickable)
+        return bool(self.text or self.desc or self.clickable or self.long_clickable or self.checkable)
 
 
 def _flag(value: str | None) -> bool:
@@ -66,6 +68,8 @@ def parse_hierarchy(xml_text: str) -> list[UINode]:
                     clickable=_flag(element.attrib.get("clickable")),
                     long_clickable=_flag(element.attrib.get("long-clickable")),
                     enabled=True,
+                    checkable=_flag(element.attrib.get("checkable")),
+                    checked=_flag(element.attrib.get("checked")),
                 )
             )
         for child in element:
@@ -100,6 +104,9 @@ def _format_node(node: UINode) -> str:
         parts.append(f'desc="{node.desc}"')
     if node.resource_id:
         parts.append(f"id={node.resource_id}")
+    if node.checkable:
+        # Switch/checkbox state is what most settings goals are judged on.
+        parts.append(f"checked={'true' if node.checked else 'false'}")
     left, top, right, bottom = node.bounds
     parts.append(f"bounds=[{left},{top}][{right},{bottom}]")
     return " ".join(parts)
