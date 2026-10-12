@@ -13,7 +13,7 @@ adb connect 127.0.0.1:5601
 adb shell getprop sys.boot_completed
 ```
 
-ADB 只绑定 `127.0.0.1`。多实例示例是 `deploy/compose/docker-compose.multi.yml`。上面的命令只起 `phone-u1`。接管流是另一个 profile：
+ADB 只绑定 `127.0.0.1`。多实例示例是 `deploy/compose/docker-compose.multi.yml`。上面的命令只起 `phone-u1`。x86_64 开发机用 `dev/qemu/make-amd64-vm.sh`：hostfwd 和容器端口都只在 `127.0.0.1`，`binder_linux` 由 modules-load.d / modprobe.d 在开机时加载。详见 [README.md](README.md)。接管流是另一个 profile：
 
 ```bash
 sudo docker compose --profile takeover -f deploy/compose/docker-compose.yml up -d --build ws-scrcpy

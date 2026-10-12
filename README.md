@@ -40,7 +40,9 @@ sudo docker compose --env-file deploy/compose/.env.example \
 
 ws-scrcpy 只监听 `127.0.0.1:8000`，通过宿主上的 adb server 看到手机。对外用 `deploy/caddy/Caddyfile`：`/takeover/<token>/` 先经 slashd 校验一次性签名，再反代到 ws-scrcpy。
 
-x86_64 开发机用 KVM 虚拟机：`dev/qemu/make-x86-vm.sh`（必须有 `/dev/kvm`）。ARM64 虚拟机是 `dev/qemu/make-arm64-vm.sh`：在 ARM 宿主机上走 KVM，在 x86 上只能 TCG，很慢。
+x86_64 上跑 amd64 Redroid 用 `dev/qemu/make-amd64-vm.sh`（默认 KVM；没有 `/dev/kvm` 时加 `ACCEL=tcg`）。QEMU hostfwd 只监听 `127.0.0.1`（SSH 默认 `22022`，ADB 默认 `15555`）。cloud-init 把 `binder_linux` 写入 `/etc/modules-load.d/redroid.conf` 和 `/etc/modprobe.d/redroid.conf`（和 `host/install.sh` 一样，重启后仍会加载），并把容器发布成 `127.0.0.1:5555:5555`。QEMU user-net 把 hostfwd 送到客户机网卡而不是 loopback，所以 `dev/qemu/adb-localhost.sh` 再把网卡上的 5555 DNAT 到 `127.0.0.1:5555`。连上之后：`adb connect 127.0.0.1:15555`。
+
+`dev/qemu/make-x86-vm.sh` 必须有 `/dev/kvm`，不把 ADB hostfwd 出来，用 `ssh -L 5555:127.0.0.1:5555`。`dev/qemu/make-arm64-vm.sh` 在 ARM 宿主机上走 KVM，在 x86 上是 TCG，很慢。
 
 控制面：
 
@@ -118,7 +120,9 @@ sudo docker compose --env-file deploy/compose/.env.example \
 
 ws-scrcpy listens on `127.0.0.1:8000` and uses the host adb server. `deploy/caddy/Caddyfile` checks the one-time signature at slashd, then proxies `/takeover/<token>/` to that port.
 
-For day-to-day work on x86_64, boot an Ubuntu VM with KVM: `dev/qemu/make-x86-vm.sh` (it exits if `/dev/kvm` is missing). `dev/qemu/make-arm64-vm.sh` uses KVM on an arm64 host and TCG on x86, which is too slow for app tests.
+On x86_64, `dev/qemu/make-amd64-vm.sh` boots an Ubuntu guest that runs the amd64 Redroid image (KVM by default, `ACCEL=tcg` when `/dev/kvm` is missing). QEMU hostfwd listens on `127.0.0.1` only (SSH port `22022`, ADB port `15555`). Cloud-init writes the same `binder_linux` autoload files as `host/install.sh` (`/etc/modules-load.d/redroid.conf` and `/etc/modprobe.d/redroid.conf`) and publishes the container as `127.0.0.1:5555:5555`. QEMU user-net delivers hostfwd to the guest NIC, not to loopback, so `dev/qemu/adb-localhost.sh` DNATs guest tcp/5555 to `127.0.0.1:5555`. Then: `adb connect 127.0.0.1:15555`.
+
+`dev/qemu/make-x86-vm.sh` requires `/dev/kvm` and does not hostfwd ADB; use `ssh -L 5555:127.0.0.1:5555`. `dev/qemu/make-arm64-vm.sh` uses KVM on an arm64 host and TCG on x86, which is too slow for app tests.
 
 Control plane:
 

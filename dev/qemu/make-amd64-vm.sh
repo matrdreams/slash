@@ -4,6 +4,7 @@
 #   ACCEL=kvm (default) | tcg   -- tcg works but is slow (~10 min to boot Android)
 # Usage: WORKDIR=/workspace/vm dev/qemu/make-amd64-vm.sh   (runs qemu in background)
 set -euo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKDIR=${WORKDIR:-/workspace/vm}
 ACCEL=${ACCEL:-kvm}
 SMP=${SMP:-6}; MEM=${MEM:-8192}; DISK_SIZE=${DISK_SIZE:-40G}
@@ -15,6 +16,7 @@ mkdir -p "$WORKDIR"; cd "$WORKDIR"
 [[ -f jammy.img ]] || wget -O jammy.img "$IMAGE_URL"
 [[ -f vmkey ]] || ssh-keygen -t ed25519 -N '' -f vmkey
 [[ -f vm.qcow2 ]] || qemu-img create -f qcow2 -F qcow2 -b jammy.img vm.qcow2 "$DISK_SIZE"
+ADB_B64=$(base64 -w0 "${ROOT}/adb-localhost.sh")
 cat > user-data <<UD
 #cloud-config
 users:
@@ -26,8 +28,10 @@ runcmd:
   - apt-get install -y linux-modules-extra-\$(uname -r) docker.io
   - modprobe binder_linux devices="binder,hwbinder,vndbinder"
   - echo binder_linux > /etc/modules-load.d/redroid.conf
-  - echo 'options binder_linux devices="binder,hwbinder,vndbinder"' > /etc/modprobe.d/redroid.conf
-  - docker run -d --privileged --restart unless-stopped --name redroid -p 5555:5555 ${REDROID_IMAGE}
+  - echo 'options binder_linux devices=binder,hwbinder,vndbinder' > /etc/modprobe.d/redroid.conf
+  - docker run -d --privileged --restart unless-stopped --name redroid -p 127.0.0.1:5555:5555 ${REDROID_IMAGE}
+  - bash -lc 'echo ${ADB_B64} | base64 -d > /usr/local/sbin/slash-adb-localhost.sh && chmod 755 /usr/local/sbin/slash-adb-localhost.sh && /usr/local/sbin/slash-adb-localhost.sh'
+  - bash -lc 'printf "%s\n" "[Unit]" "Description=Keep Redroid ADB on 127.0.0.1" "After=docker.service" "Wants=docker.service" "" "[Service]" "Type=oneshot" "RemainAfterExit=yes" "ExecStart=/usr/local/sbin/slash-adb-localhost.sh" "" "[Install]" "WantedBy=multi-user.target" > /etc/systemd/system/slash-adb-localhost.service && systemctl daemon-reload && systemctl enable slash-adb-localhost.service'
   - touch /root/ready
 UD
 printf 'instance-id: slash-amd64\nlocal-hostname: slash\n' > meta-data

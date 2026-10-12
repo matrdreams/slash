@@ -12,3 +12,6 @@ Tests: 47 passed, 5 skipped (Redroid integration, needs binder host); ruff: clea
 | M5 production | Scaffold | k8s StatefulSet backend, proxy, backup, security/compliance docs; not validated |
 | M6 release | Started | CI workflow, release-checklist, DISCLAIMER; no docs site/PyPI/multiarch images |
 | M7+ | Not started (physical-device backend stub only) | |
+
+## Detached jobs
+- grok m0m1 PID 1772910 log /workspace/grok-logs/m0m1.json (started 21:38)

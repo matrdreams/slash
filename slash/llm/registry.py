@@ -8,6 +8,7 @@ from slash.core.config import LLMConfig, ProviderConfig
 from slash.core.errors import ResidencyError, SlashError
 from slash.llm.fake import ScriptedProvider
 from slash.llm.glm import GLMProvider
+from slash.llm.grok_cli import DEFAULT_GROK_BIN, GrokCliProvider
 from slash.llm.openai_compat import OpenAICompatProvider
 from slash.llm.qwen import QwenProvider
 from slash.llm.ui_tars import UITarsProvider
@@ -65,4 +66,14 @@ def build_provider(
     if kind in {"openai_compat", "local"}:
         region = "local" if kind == "local" else spec.region
         return OpenAICompatProvider(region=region, **common)
+    if kind in {"grok_cli", "grok"}:
+        binary = spec.base_url if spec.base_url.startswith("/") else DEFAULT_GROK_BIN
+        return GrokCliProvider(
+            name=provider_name,
+            model=spec.model,
+            binary=binary,
+            region=spec.region,
+            vision=spec.vision,
+            coord_space=spec.coord_space,
+        )
     raise SlashError(f"unknown llm provider kind {kind}")
