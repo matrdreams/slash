@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>slash</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header>
+    <div>
+      <strong>slash</strong>
+      <span class="muted">任务面板</span>
+    </div>
+    <form id="token-form">
+      <label for="token">Bearer token</label>
+      <input id="token" type="password" autocomplete="off" placeholder="本地 API token">
+      <button type="submit">保存</button>
+    </form>
+  </header>
+  <main>
+    <section class="list">
+      <div class="row">
+        <h1>任务</h1>
+        <button id="refresh" type="button">刷新</button>
+      </div>
+      <p id="list-error" class="error" hidden></p>
+      <ul id="tasks"></ul>
+    </section>
+    <section class="detail">
+      <h1 id="goal">选择一个任务</h1>
+      <p id="meta" class="muted"></p>
+      <div id="takeover" hidden>
+        <div class="row">
+          <h2>接管</h2>
+          <button id="hand-back" type="button">交还</button>
+        </div>
+        <p class="muted">链接 5 分钟内有效，并且只能第一次打开时核销。扫码时用另一台设备扫云手机屏幕。</p>
+        <p id="takeover-link"></p>
+        <iframe id="stream" title="ws-scrcpy" referrerpolicy="no-referrer"></iframe>
+      </div>
+      <h2>步骤</h2>
+      <ol id="steps"></ol>
+    </section>
+  </main>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

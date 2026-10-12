@@ -1,5 +1,6 @@
 """Observation: uiautomator dump plus screencap. uiautomator2 is optional and not required."""
 
+import asyncio
 from dataclasses import dataclass, field
 
 from slash.agent.imageutil import redact_png, scale_long_edge
@@ -28,11 +29,17 @@ class Observer:
         self.long_edge = long_edge
         self.tree_limit = tree_limit
 
-    async def observe(self, serial: str) -> Observation:
+    async def observe(self, serial: str, *, mode: str = "tree+vision") -> Observation:
+        if mode == "vision-only":
+            return await self._vision_only(serial)
         xml_text = ""
         error = ""
         last_exc: Exception | None = None
-        for _ in range(2):
+        for attempt in range(3):
+            if attempt:
+                # uiautomator prints "could not get idle state" and writes nothing while
+                # an activity is still animating (seen on Redroid right after launch).
+                await asyncio.sleep(1.0)
             try:
                 await self.adb.shell(serial, f"uiautomator dump {DUMP_REMOTE}")
                 xml_text = await self.adb.shell(serial, f"cat {DUMP_REMOTE}")
@@ -60,6 +67,25 @@ class Observer:
             package=package,
             raw_xml=xml_text,
             error=error,
+            extra={"mode": mode},
+        )
+
+    async def _vision_only(self, serial: str) -> Observation:
+        """Skip the accessibility dump. WeChat, Flutter, and many WebViews have no useful tree."""
+        error = ""
+        try:
+            screenshot = await self.adb.exec_out(serial, "screencap -p")
+        except Exception as exc:
+            screenshot = b""
+            error = f"screencap failed: {exc}"
+        scaled = scale_long_edge(screenshot, self.long_edge) if screenshot else b""
+        return Observation(
+            tree_text="",
+            nodes=[],
+            screenshot=screenshot,
+            screenshot_for_llm=scaled,
+            error=error,
+            extra={"mode": "vision-only"},
         )
 
     def apply_redaction(self, obs: Observation, *, enabled: bool) -> Observation:

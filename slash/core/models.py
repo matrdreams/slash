@@ -164,6 +164,7 @@ class TaskOut(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     takeover_url: str | None = None
+    takeover_id: str | None = None
 
 
 class StepOut(BaseModel):

@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Ubuntu host preparation. Sourced by host/install.sh; do not execute directly.
 # Supports 18.04 (HWE kernel), 20.04/22.04, and 24.04 (same flow as 22.04; 24.04 is not on the
 # upstream deploy page and should be confirmed with host/check.sh).

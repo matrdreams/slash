@@ -20,6 +20,7 @@ from slash.core.errors import BudgetExceeded, ConflictError, SlashError
 from slash.core.events import Event, EventBus
 from slash.core.metrics import Metrics
 from slash.core.models import TERMINAL_TASK_STATUSES, TaskStatus, assert_transition
+from slash.devices.serial import serial_of
 from slash.store.blobstore import BlobStore
 from slash.store.db import Store
 from slash.store.ids import new_id
@@ -93,7 +94,7 @@ class AgentRuntime:
             self._set_status(task, TaskStatus.RUNNING)
 
         device = self.store.require_device(task.device_id)
-        serial = f"127.0.0.1:{device.adb_port}"
+        serial = serial_of(device)
         if hasattr(self.planner, "mode"):
             self.planner.mode = task.mode
         if task.mode == "vision-only" and not getattr(self.planner.provider, "supports_vision", False):
@@ -120,12 +121,12 @@ class AgentRuntime:
                 self._fail(task, "max_steps exceeded")
                 return
             started = time.monotonic()
-            obs = await self.observer.observe(serial)
+            obs = await self.observer.observe(serial, mode=task.mode)
             provider_region = getattr(self.planner.provider, "region", "local")
             redact = should_redact(tree_text=obs.tree_text, provider_region=provider_region)
             self.observer.apply_redaction(obs, enabled=redact)
 
-            watcher = match_watcher(obs.nodes, self.watchers)
+            watcher = match_watcher(obs.nodes, self.watchers, package=obs.package)
             if watcher is not None:
                 from slash.agent.actions import Tap
 
@@ -234,7 +235,7 @@ class AgentRuntime:
             device_id=task.device_id,
             task_id=task.id,
             reason=reason,
-            serial=f"127.0.0.1:{device.adb_port}",
+            serial=serial_of(device),
         )
         task.takeover_url = issued.url
         self.store.save_task(task)
@@ -307,12 +308,28 @@ class AgentRuntime:
 
     async def cancel(self, task_id: str) -> TaskRow:
         task = self.store.require_task(task_id)
+        assert_transition(task.status, TaskStatus.CANCELLED)
+        if self.takeover is not None:
+            for row in list(self.store.list_open_takeovers()):
+                if row.task_id == task_id:
+                    await self.takeover.release(row.id)
+        task = self.store.require_task(task_id)
         self._set_status(task, TaskStatus.CANCELLED)
         task = self.store.require_task(task_id)
         task.finished_at = utcnow()
         self.store.save_task(task)
         self._emit(task, "done", {"status": "CANCELLED"})
         return task
+
+    async def resume(self, task_id: str, *, text: str = "") -> TaskRow:
+        """Continue a NEED_HUMAN task after the person hands control back."""
+        task = self.store.require_task(task_id)
+        if task.status != TaskStatus.NEED_HUMAN.value:
+            raise ConflictError("only a NEED_HUMAN task can be resumed")
+        if text:
+            task.human_reply = text
+            self.store.save_task(task)
+        return await self.run(task_id, resume=True)
 
     async def reply(self, task_id: str, text: str) -> TaskRow:
         task = self.store.require_task(task_id)
@@ -321,5 +338,7 @@ class AgentRuntime:
         task.human_reply = text
         self.store.save_task(task)
         if self.takeover is not None:
-            self.takeover.release_for_task(task_id)
-        return await self.run(task_id, resume=True)
+            for row in list(self.store.list_open_takeovers()):
+                if row.task_id == task_id:
+                    await self.takeover.release(row.id)
+        return await self.resume(task_id)

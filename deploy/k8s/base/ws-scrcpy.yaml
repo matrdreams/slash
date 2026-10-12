@@ -16,7 +16,13 @@ spec:
     spec:
       containers:
         - name: ws-scrcpy
-          image: ghcr.io/example/ws-scrcpy:pinned
+          # Built from third_party/ws-scrcpy/Dockerfile at the commit in PIN.
+          image: slash-ws-scrcpy:pinned
+          env:
+            - name: ADB_HOST
+              value: "127.0.0.1"
+            - name: ADB_PORT
+              value: "5037"
           ports:
             - name: http
               containerPort: 8000

@@ -1,0 +1,4 @@
+device: u1
+goal: 打开浏览器，访问 example.com，确认页面打开了
+mode: tree+vision
+max_steps: 15

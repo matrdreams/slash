@@ -200,6 +200,46 @@ def serve(
 
 
 @app.command()
+def takeover(
+    device: str,
+    config: Path | None = typer.Option(None, "--config", "-c", envvar="SLASH_CONFIG"),
+    reason: str = "manual",
+) -> None:
+    """Print a 5-minute single-use takeover URL for a device."""
+    state = _context(config)
+    row = _device_row(state, device)
+    from slash.devices.serial import serial_of
+
+    issued = state.takeover.issue(
+        device_id=row.id,
+        task_id=None,
+        reason=reason,
+        serial=serial_of(row),
+    )
+    typer.echo(issued.url)
+
+
+compat_app = typer.Typer(no_args_is_help=True, help="Compatibility matrix.")
+
+
+@compat_app.command("run")
+def compat_run(
+    apps: Path = typer.Option(Path("tests/compat/apps.yaml"), "--apps"),
+    write_matrix: Path | None = typer.Option(None, "--write-matrix"),
+) -> None:
+    """Probe installed apps when SLASH_ADB_SERIAL is set, else print the template."""
+    from slash.compat.harness import main
+
+    argv: list[str] = ["--apps", str(apps)]
+    if write_matrix is not None:
+        argv.extend(["--write-matrix", str(write_matrix)])
+    raise typer.Exit(code=main(argv))
+
+
+app.add_typer(compat_app, name="compat")
+
+
+@app.command()
 def version() -> None:
     typer.echo(__version__)
 

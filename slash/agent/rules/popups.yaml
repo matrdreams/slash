@@ -1,0 +1,47 @@
+# Clickable labels for permission sheets and splash dialogs.
+# Package rules run before the default list. Matching is exact, not a substring,
+# so "不允许" does not hit "允许".
+default:
+  texts:
+    - 同意
+    - 同意并继续
+    - 允许
+    - 始终允许
+    - 仅在使用中允许
+    - 仅在使用该应用时允许
+    - 使用应用时允许
+    - 仅在使用时允许
+    - 跳过
+    - 以后再说
+    - 我知道了
+    - 暂不
+    - 关闭
+    - 不再提示
+    - 不再提醒
+    - Allow
+    - While using the app
+    - Only this time
+apps:
+  com.android.permissioncontroller:
+    texts:
+      - 允许
+      - 仅在使用该应用时允许
+      - 仅在使用中允许
+      - 仅这次使用时允许
+      - While using the app
+      - Allow
+      - Only this time
+  com.google.android.permissioncontroller:
+    texts:
+      - While using the app
+      - Only this time
+      - Allow
+  com.lbe.security.miui:
+    texts:
+      - 允许
+      - 仅在使用中允许
+      - 始终允许
+  com.huawei.systemmanager:
+    texts:
+      - 允许
+      - 仅使用期间允许

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from slash.api.deps import require_bearer
 from slash.core.errors import TokenError
+from slash.core.models import TaskStatus
 
 auth_router = APIRouter(prefix="/takeover", dependencies=[Depends(require_bearer)])
 public_router = APIRouter(prefix="/takeover")
@@ -11,8 +12,20 @@ public_router = APIRouter(prefix="/takeover")
 
 @auth_router.post("/{takeover_id}:release")
 async def release(takeover_id: str, request: Request):
-    row = await request.app.state.ctx.takeover.release(takeover_id)
-    return {"id": row.id, "released_at": row.released_at, "recording_ref": row.recording_ref}
+    state = request.app.state.ctx
+    row = await state.takeover.release(takeover_id)
+    task_status = None
+    if row.task_id:
+        task = state.store.get_task(row.task_id)
+        if task is not None and task.status == TaskStatus.NEED_HUMAN.value:
+            finished = await state.runtime.resume(task.id, text=task.human_reply or "用户已交还控制")
+            task_status = finished.status
+    return {
+        "id": row.id,
+        "released_at": row.released_at,
+        "recording_ref": row.recording_ref,
+        "task_status": task_status,
+    }
 
 
 @auth_router.post("/{takeover_id}/release")

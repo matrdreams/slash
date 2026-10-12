@@ -124,6 +124,11 @@ class Store:
             db.refresh(row)
             return row
 
+    def list_tasks(self) -> list[TaskRow]:
+        with self.session() as db:
+            rows = list(db.exec(select(TaskRow)))
+        return sorted(rows, key=lambda row: row.created_at, reverse=True)
+
     def get_task(self, task_id: str) -> TaskRow | None:
         with self.session() as db:
             return db.get(TaskRow, task_id)

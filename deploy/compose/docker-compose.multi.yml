@@ -46,6 +46,23 @@ services:
       - androidboot.redroid_net_dns1=223.5.5.5
       - androidboot.use_memfd=true
 
+  ws-scrcpy:
+    profiles: ["takeover"]
+    image: slash-ws-scrcpy:pinned
+    build:
+      context: ../../third_party/ws-scrcpy
+      dockerfile: Dockerfile
+      args:
+        WS_SCRCPY_REF: cd6cea6ebde17af6685c2b325183fc24bef9d52b
+    ports:
+      - "127.0.0.1:8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ADB_HOST: host.docker.internal
+      ADB_PORT: "5037"
+    restart: "no"
+
 networks:
   net-u1: {}
   net-u2: {}

@@ -44,6 +44,7 @@ class DeviceRow(SQLModel, table=True):
     dns_json: str = '["223.5.5.5"]'
     use_memfd: bool = True
     adb_port: int
+    adb_serial_override: str = ""
     data_path: str
     proxy: str | None = None
     proxy_profile_id: str | None = None

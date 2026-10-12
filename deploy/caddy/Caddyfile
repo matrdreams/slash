@@ -1,15 +1,21 @@
 # TLS terminator and auth reverse proxy.
-# /takeover/* is allowed only when slashd forward_auth accepts the signed link.
+# /takeover/<token>/ is allowed only after slashd forward_auth accepts the
+# signed single-use link. The token prefix is removed so ws-scrcpy, which
+# serves its UI at /, still receives bundle and websocket paths.
 # ws-scrcpy itself stays on 127.0.0.1:8000.
 
 {$SLASH_DOMAIN:localhost} {
 	encode gzip
+
+	@takeover_noslash path_regexp noslash ^/takeover/[^/]+$
+	redir @takeover_noslash {http.request.orig_uri.path}/ 308
 
 	handle /takeover/* {
 		forward_auth 127.0.0.1:8787 {
 			uri /api/v1/takeover/verify
 			copy_headers X-Forwarded-Uri X-Forwarded-Method
 		}
+		uri path_regexp ^/takeover/[^/]+/?(.*)$ /$1
 		reverse_proxy 127.0.0.1:8000
 	}
 

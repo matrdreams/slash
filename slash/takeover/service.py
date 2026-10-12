@@ -122,6 +122,28 @@ class TakeoverService:
                 row.released_at = utcnow()
                 self.store.save_takeover(row)
 
+    async def stop_expired_recordings(self, now: datetime | None = None) -> None:
+        """Pull screenrecord segments for links that are past their deadline.
+
+        Called before apply_timeouts, while the row is still open, so the
+        recorder is stopped once. apply_timeouts then fails the task.
+        """
+        moment = _as_utc(now or utcnow())
+        for row in list(self.store.list_open_takeovers()):
+            if as_utc(row.expires_at) > moment:
+                continue
+            serial = self._serials.pop(row.id, "")
+            if not (self.record and self.recorder is not None and serial):
+                continue
+            from pathlib import Path
+
+            dest = Path(self.blobs.root) / "takeover" / f"{row.id}.mp4"
+            try:
+                row.recording_ref = await self.recorder.stop(serial, row.id, dest)
+            except Exception:
+                row.recording_ref = ""
+            self.store.save_takeover(row)
+
     def apply_timeouts(self, now: datetime | None = None) -> list[str]:
         from slash.core.models import TaskStatus, assert_transition
 

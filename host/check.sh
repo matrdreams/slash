@@ -95,10 +95,11 @@ check_listen_line() {
   if [[ ! "${port}" =~ ^[0-9]+$ ]]; then
     return 0
   fi
-  if [[ "${port}" -eq 5555 || ( "${port}" -ge 5600 && "${port}" -le 5699 ) ]]; then
+  # 5555 and 5600-5699 are ADB. 8000 is ws-scrcpy. None of them may listen on every interface.
+  if [[ "${port}" -eq 5555 || "${port}" -eq 8000 || ( "${port}" -ge 5600 && "${port}" -le 5699 ) ]]; then
     case "${host}" in
-      0.0.0.0|\*|\[::\]|::|"[::]")
-        issues+=("port ${port} is listening on ${host}; ADB must bind 127.0.0.1 only")
+      0.0.0.0|\*|::|"[::]")
+        issues+=("port ${port} is listening on ${host}; bind it to 127.0.0.1 only")
         ;;
     esac
   fi

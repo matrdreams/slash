@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
 from slash.api.deps import require_bearer
-from slash.api.serialize import step_out, task_out
+from slash.api.serialize import step_out, task_out_from
 from slash.api.ws import format_sse
 from slash.core.models import TERMINAL_TASK_STATUSES, ReplyIn, TaskCreate, TaskStatus
 from slash.store.ids import new_id
@@ -18,6 +18,12 @@ router = APIRouter(prefix="/tasks", dependencies=[Depends(require_bearer)])
 
 def _state(request: Request):
     return request.app.state.ctx
+
+
+@router.get("")
+async def list_tasks(request: Request):
+    state = _state(request)
+    return [task_out_from(state.store, row) for row in state.store.list_tasks()]
 
 
 @router.post("")
@@ -57,12 +63,13 @@ async def create_task(body: TaskCreate, request: Request):
         await state.runtime.run(saved.id)
     else:
         asyncio.create_task(state.runtime.run(saved.id))
-    return task_out(state.store.require_task(saved.id))
+    return task_out_from(state.store, state.store.require_task(saved.id))
 
 
 @router.get("/{task_id}")
 async def get_task(task_id: str, request: Request):
-    return task_out(_state(request).store.require_task(task_id))
+    state = _state(request)
+    return task_out_from(state.store, state.store.require_task(task_id))
 
 
 @router.get("/{task_id}/steps")
@@ -111,19 +118,23 @@ async def task_events(task_id: str, request: Request):
 
 @router.post("/{task_id}:cancel")
 async def cancel_task(task_id: str, request: Request):
-    return task_out(await _state(request).runtime.cancel(task_id))
+    state = _state(request)
+    return task_out_from(state.store, await state.runtime.cancel(task_id))
 
 
 @router.post("/{task_id}/cancel")
 async def cancel_task_slash(task_id: str, request: Request):
-    return task_out(await _state(request).runtime.cancel(task_id))
+    state = _state(request)
+    return task_out_from(state.store, await state.runtime.cancel(task_id))
 
 
 @router.post("/{task_id}:reply")
 async def reply_task(task_id: str, body: ReplyIn, request: Request):
-    return task_out(await _state(request).runtime.reply(task_id, body.text))
+    state = _state(request)
+    return task_out_from(state.store, await state.runtime.reply(task_id, body.text))
 
 
 @router.post("/{task_id}/reply")
 async def reply_task_slash(task_id: str, body: ReplyIn, request: Request):
-    return task_out(await _state(request).runtime.reply(task_id, body.text))
+    state = _state(request)
+    return task_out_from(state.store, await state.runtime.reply(task_id, body.text))

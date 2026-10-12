@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from slash.api.deps import require_bearer
 from slash.api.serialize import app_out, snapshot_out
 from slash.core.models import AppInstallIn, DeviceCreate
+from slash.devices.serial import serial_of
 
 router = APIRouter(prefix="/devices", dependencies=[Depends(require_bearer)])
 
@@ -196,5 +197,5 @@ async def open_takeover(device_id: str, request: Request, reason: str = "manual"
         device_id=device_id,
         task_id=None,
         reason=reason,
-        serial=f"127.0.0.1:{device.adb_port}",
+        serial=serial_of(device),
     )

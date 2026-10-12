@@ -1,0 +1,23 @@
+# Phones accept ADB only from slashd and ws-scrcpy in this namespace.
+# Combined with ClusterIP, the adb port is not a cluster entrypoint.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: phone-adb-internal
+spec:
+  podSelector:
+    matchLabels:
+      app: slash-phone
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: slashd
+        - podSelector:
+            matchLabels:
+              app: ws-scrcpy
+      ports:
+        - protocol: TCP
+          port: 5555

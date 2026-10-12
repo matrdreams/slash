@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Alibaba Cloud Linux 2/3, Amazon Linux 2, openEuler 20.03.
 # These kernels usually need https://github.com/remote-android/redroid-modules (4.14+, DKMS /
 # manual / Docker / K8s). Kernel >= 5.7 should prefer the distro modprobe path when binder_linux

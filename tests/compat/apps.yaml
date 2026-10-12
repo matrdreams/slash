@@ -1,0 +1,71 @@
+# Apps the compatibility harness knows about. Status is filled by `slash compat run`
+# on a device. Nothing here has been measured in CI.
+apps:
+  - name: 淘宝
+    package: com.taobao.taobao
+    mode: tree+vision
+    basic_task: 打开首页并搜索机械键盘，返回前三个价格
+  - name: 京东
+    package: com.jingdong.app.mall
+    mode: tree+vision
+    basic_task: 打开首页并搜索机械键盘
+  - name: 拼多多
+    package: com.xunmeng.pinduoduo
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 美团
+    package: com.sankuai.meituan
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 饿了么
+    package: me.ele
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 抖音
+    package: com.ss.android.ugc.aweme
+    mode: vision-only
+    basic_task: 打开推荐页
+    notes: 界面树经常不完整，默认视觉模式
+  - name: 快手
+    package: com.smile.gifmaker
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 小红书
+    package: com.xingin.xhs
+    mode: tree+vision
+    basic_task: 打开首页并搜索机械键盘
+  - name: 哔哩哔哩
+    package: tv.danmaku.bili
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 高德地图
+    package: com.autonavi.minimap
+    mode: tree+vision
+    basic_task: 打开地图首页
+  - name: 百度地图
+    package: com.baidu.BaiduMap
+    mode: tree+vision
+    basic_task: 打开地图首页
+  - name: 微信
+    package: com.tencent.mm
+    mode: vision-only
+    basic_task: 打开首页
+    notes: 高风险，树不完整；登录只走人工接管
+  - name: 支付宝
+    package: com.eg.android.AlipayGphone
+    mode: vision-only
+    basic_task: 打开首页
+    notes: 支付确认必须 ask_human；不在自动化成功标准里
+  - name: 网易云音乐
+    package: com.netease.cloudmusic
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 菜鸟
+    package: com.cainiao.wireless
+    mode: tree+vision
+    basic_task: 打开首页
+  - name: 铁路12306
+    package: com.MobileTicket
+    mode: tree+vision
+    basic_task: 打开首页
+    notes: 不提供抢票

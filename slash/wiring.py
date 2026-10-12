@@ -12,6 +12,7 @@ from slash.agent.loop import AgentRuntime
 from slash.agent.observer import Observer
 from slash.agent.planners.mobilerun import MobilerunPlanner
 from slash.agent.planners.native import NativePlanner
+from slash.agent.watchers import load_rules
 from slash.core.config import SlashConfig
 from slash.core.events import EventBus
 from slash.core.metrics import Metrics
@@ -20,6 +21,7 @@ from slash.devices.backends.compose import ComposeBackend
 from slash.devices.backends.docker_api import DockerRedroidBackend
 from slash.devices.backends.fake import FakeBackend
 from slash.devices.backends.k8s import K8sBackend
+from slash.devices.backends.physical import PhysicalBackend
 from slash.devices.certs import ApksignerVerifier
 from slash.devices.fake_adb import FakeAdb
 from slash.devices.health import HealthMonitor
@@ -122,6 +124,8 @@ def make_backend(config: SlashConfig):
         return DockerRedroidBackend()
     if kind == "k8s":
         return K8sBackend()
+    if kind == "physical":
+        return PhysicalBackend(dict(config.devices.serials))
     override = Path(config.devices.data_root) / "phones.override.yml"
     return ComposeBackend(override)
 
@@ -182,6 +186,7 @@ def build_context(
         recorder=recorder,
         record=config.takeover.record,
     )
+    watcher_path = Path(config.agent.watchers_file) if config.agent.watchers_file else None
     runtime = AgentRuntime(
         store=store,
         blobs=blobs,
@@ -192,6 +197,7 @@ def build_context(
         takeover=takeover,
         bus=bus,
         metrics=metrics,
+        watchers=load_rules(watcher_path),
     )
     health = HealthMonitor(manager, adb, bus=bus)
     return AppContext(

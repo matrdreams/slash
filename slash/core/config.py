@@ -36,7 +36,7 @@ class DeviceDefaults(BaseModel):
 
 
 class DevicesConfig(BaseModel):
-    backend: Literal["compose", "docker", "k8s", "fake"] = "compose"
+    backend: Literal["compose", "docker", "k8s", "fake", "physical"] = "compose"
     data_root: str = "/srv/slash/devices"
     default_image: str = "redroid/redroid:12.0.0-latest"
     adb_port_base: int = 5600
@@ -46,6 +46,8 @@ class DevicesConfig(BaseModel):
     defaults: DeviceDefaults = Field(default_factory=DeviceDefaults)
     # Debian hosts bind /dev/binderN. Leave empty on Ubuntu binderfs.
     binder_devices: list[str] = Field(default_factory=list)
+    # physical backend: device name -> adb serial (USB or an existing forward).
+    serials: dict[str, str] = Field(default_factory=dict)
     apps_registry: str | None = None
 
 
@@ -56,6 +58,7 @@ class AgentConfig(BaseModel):
     screenshot_long_edge: int = 1024
     confirm_sensitive: bool = True
     tree_max_nodes: int = 80
+    watchers_file: str | None = None
 
 
 class ProviderConfig(BaseModel):

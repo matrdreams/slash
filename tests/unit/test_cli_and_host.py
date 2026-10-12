@@ -64,6 +64,8 @@ def test_host_scripts_are_executable_bash():
         "dev/qemu/make-x86-vm.sh",
         "images/fetch-apks.sh",
         "deploy/proxy/iptables.sh",
+        "deploy/backup/backup.sh",
+        "third_party/ws-scrcpy/fetch.sh",
     ):
         path = ROOT / relative
         syntax = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)

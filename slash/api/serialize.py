@@ -6,7 +6,7 @@ from slash.core.models import AppInstallOut, SessionOut, SnapshotOut, StepOut, T
 from slash.store.tables import AppInstallRow, SessionRow, SnapshotRow, StepRow, TaskRow
 
 
-def task_out(row: TaskRow) -> TaskOut:
+def task_out(row: TaskRow, *, takeover_id: str | None = None) -> TaskOut:
     result = json.loads(row.result_json) if row.result_json else None
     return TaskOut(
         id=row.id,
@@ -27,7 +27,17 @@ def task_out(row: TaskRow) -> TaskOut:
         started_at=row.started_at,
         finished_at=row.finished_at,
         takeover_url=row.takeover_url or None,
+        takeover_id=takeover_id,
     )
+
+
+def task_out_from(store, row: TaskRow) -> TaskOut:
+    takeover_id = None
+    for item in store.list_open_takeovers():
+        if item.task_id == row.id:
+            takeover_id = item.id
+            break
+    return task_out(row, takeover_id=takeover_id)
 
 
 def step_out(row: StepRow) -> StepOut:

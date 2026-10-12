@@ -18,6 +18,7 @@ from slash.devices.certs import (
     assert_registry_pin,
     file_sha256,
 )
+from slash.devices.serial import serial_of
 from slash.devices.snapshot import archive_tree, extract_tree
 from slash.devices.specs import DeviceSpec, parse_mem_mb, parse_resolution, validate_device_name
 from slash.store.db import Store
@@ -121,7 +122,7 @@ class DeviceManager:
             mem=row.mem,
             cpus=row.cpus,
             adb_port=row.adb_port,
-            adb_serial=f"127.0.0.1:{row.adb_port}",
+            adb_serial=serial_of(row),
             data_path=row.data_path,
             proxy=row.proxy,
             runtime=runtime,
@@ -159,6 +160,7 @@ class DeviceManager:
             dns_json=json.dumps(defaults.dns),
             use_memfd=defaults.use_memfd,
             adb_port=self.config.devices.adb_port_base + seq,
+            adb_serial_override=self._serial_override(name),
             data_path=str(Path(self.config.devices.data_root) / name / "data"),
             proxy=body.proxy,
             proxy_profile_id=proxy_id,
@@ -199,7 +201,7 @@ class DeviceManager:
         row = self.store.require_device(device_id)
         await self._remember(row)
         if sync and row.state == DeviceState.RUNNING.value:
-            serial = f"127.0.0.1:{row.adb_port}"
+            serial = serial_of(row)
             try:
                 await self.adb.shell(serial, "sync")
             except Exception:
@@ -232,7 +234,7 @@ class DeviceManager:
     async def ensure_running(self, device_id: str) -> DeviceOut:
         row = self.store.require_device(device_id)
         await self._remember(row)
-        serial = f"127.0.0.1:{row.adb_port}"
+        serial = serial_of(row)
         started = time.monotonic()
         if row.state != DeviceState.RUNNING.value:
             await self.start(device_id)
@@ -354,7 +356,7 @@ class DeviceManager:
         cert = self.cert_verifier.fingerprint(apk)
         cert = assert_expected_cert(cert, expected_cert_sha256)
         assert_registry_pin(package, cert, self.pins)
-        serial = f"127.0.0.1:{row.adb_port}"
+        serial = serial_of(row)
         before = set(await self.list_packages(device_id))
         extras = [str(path) for path in (splits or [])]
         await self.adb.install(serial, str(apk), grant=True, multiple=[str(apk), *extras] if extras else None)
@@ -379,7 +381,7 @@ class DeviceManager:
         row = self.store.require_device(device_id)
         if row.state != DeviceState.RUNNING.value:
             return []
-        text = await self.adb.shell(f"127.0.0.1:{row.adb_port}", "pm list packages -3")
+        text = await self.adb.shell(serial_of(row), "pm list packages -3")
         packages = []
         for line in text.splitlines():
             line = line.strip()
@@ -391,12 +393,18 @@ class DeviceManager:
         row = self.store.require_device(device_id)
         if row.state != DeviceState.RUNNING.value:
             raise ConflictError("device is not running")
-        return await self.adb.exec_out(f"127.0.0.1:{row.adb_port}", "screencap -p")
+        return await self.adb.exec_out(serial_of(row), "screencap -p")
 
     async def logs(self, device_id: str, tail: int = 200) -> str:
         row = self.store.require_device(device_id)
         await self._remember(row)
         return await self.backend.logs(device_id, tail=tail)
+
+    def _serial_override(self, name: str) -> str:
+        configured = self.config.devices.serials.get(name, "").strip()
+        if configured:
+            return configured
+        return ""
 
     def _refresh_running_gauge(self) -> None:
         self.metrics.set_gauge("slash_devices_running", float(self.store.count_state(DeviceState.RUNNING.value)))

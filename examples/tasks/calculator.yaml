@@ -1,0 +1,4 @@
+device: u1
+goal: 打开计算器，计算 19 乘 23，读出结果
+mode: tree
+max_steps: 15

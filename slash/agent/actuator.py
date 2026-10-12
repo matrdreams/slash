@@ -91,7 +91,18 @@ class Actuator:
             if not _PACKAGE.fullmatch(action.package):
                 raise PolicyViolation(f"refusing to launch invalid package {action.package!r}")
             quoted = shlex.quote(action.package)
-            await self.adb.shell(serial, f"monkey -p {quoted} -c android.intent.category.LAUNCHER 1")
+            # Resolve the launcher activity and use `am start`; monkey exits non-zero on
+            # some Redroid builds (no physical keys), so it is only a fallback.
+            resolved = await self.adb.shell(
+                serial,
+                "cmd package resolve-activity --brief -a android.intent.action.MAIN "
+                f"-c android.intent.category.LAUNCHER {quoted}",
+            )
+            component = resolved.strip().splitlines()[-1].strip() if resolved.strip() else ""
+            if "/" in component:
+                await self.adb.shell(serial, f"am start -n {shlex.quote(component)}")
+            else:
+                await self.adb.shell(serial, f"monkey -p {quoted} -c android.intent.category.LAUNCHER 1")
             return
         if isinstance(action, Wait):
             await self.sleeper(max(action.ms, 0) / 1000)

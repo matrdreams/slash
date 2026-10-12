@@ -1,0 +1,5 @@
+{
+  "SCRCPY_LISTENS_ON_ALL_INTERFACES": false,
+  "INCLUDE_APPL": false,
+  "INCLUDE_GOOG": true
+}

@@ -11,6 +11,10 @@ spec:
     metadata:
       labels:
         app: slashd
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8787"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: slashd

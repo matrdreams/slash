@@ -80,21 +80,21 @@ fi
 DISTRO_ID="${ID:-unknown}"
 case "${DISTRO_ID}" in
   ubuntu)
-    # shellcheck source=distro/ubuntu.sh
+    # shellcheck disable=SC1091
     source "${ROOT}/distro/ubuntu.sh"
     ;;
   debian)
-    # shellcheck source=distro/debian.sh
+    # shellcheck disable=SC1091
     source "${ROOT}/distro/debian.sh"
     ;;
   alinux|alios|alinux3|openEuler|amzn|anolis)
-    # shellcheck source=distro/alinux.sh
+    # shellcheck disable=SC1091
     source "${ROOT}/distro/alinux.sh"
     ;;
   *)
     # Other distros with kernel >= 5.7: try the generic modprobe path.
     echo "distro ${DISTRO_ID} is not in the support matrix; trying generic binder load" >&2
-    # shellcheck source=distro/ubuntu.sh
+    # shellcheck disable=SC1091
     source "${ROOT}/distro/ubuntu.sh"
     ;;
 esac

@@ -1,0 +1,38 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Ruff
+        run: ruff check .
+      - name: Pytest
+        run: pytest
+      - name: Shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck \
+            host/install.sh \
+            host/check.sh \
+            host/distro/ubuntu.sh \
+            host/distro/debian.sh \
+            host/distro/alinux.sh \
+            dev/qemu/make-arm64-vm.sh \
+            dev/qemu/make-x86-vm.sh \
+            images/fetch-apks.sh \
+            deploy/proxy/iptables.sh \
+            deploy/backup/backup.sh \
+            third_party/ws-scrcpy/fetch.sh
+      - name: Compose config
+        run: |
+          docker compose --profile takeover -f deploy/compose/docker-compose.yml config >/dev/null
+          docker compose --profile takeover -f deploy/compose/docker-compose.multi.yml config >/dev/null

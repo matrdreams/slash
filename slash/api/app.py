@@ -3,12 +3,15 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from slash import __version__
 from slash.api.routes import devices, sessions, takeover, tasks
+from slash.api.stream import install_stream
 from slash.core.errors import (
     AdbError,
     BootTimeoutError,
@@ -24,6 +27,7 @@ from slash.core.errors import (
 )
 from slash.core.models import TaskStatus
 
+_WEB = Path(__file__).resolve().parents[2] / "web"
 log = logging.getLogger("slash")
 
 
@@ -53,6 +57,8 @@ def create_app(ctx, *, start_background: bool = False) -> FastAPI:
     app.include_router(sessions.router, prefix="/api/v1")
     app.include_router(takeover.auth_router, prefix="/api/v1")
     app.include_router(takeover.public_router, prefix="/api/v1")
+    install_stream(app)
+    _install_web(app)
 
     @app.get("/healthz")
     async def healthz():
@@ -71,10 +77,22 @@ async def _background(ctx) -> None:
         try:
             await ctx.manager.reap_idle()
             await ctx.health.check_running()
+            await ctx.takeover.stop_expired_recordings()
             ctx.takeover.apply_timeouts()
         except Exception:
             log.exception("background loop failed")
         await asyncio.sleep(ctx.config.devices.reaper_interval_s)
+
+
+def _install_web(app: FastAPI) -> None:
+    if not (_WEB / "index.html").is_file():
+        return
+
+    @app.get("/")
+    async def index():
+        return FileResponse(_WEB / "index.html")
+
+    app.mount("/assets", StaticFiles(directory=_WEB), name="assets")
 
 
 def _install_errors(app: FastAPI) -> None:

@@ -1,0 +1,7 @@
+# Runtime config baked into the image. The process listens on every interface
+# inside the container; Docker publishes that port on 127.0.0.1 only.
+runGoogTracker: true
+runApplTracker: false
+server:
+  - secure: false
+    port: 8000

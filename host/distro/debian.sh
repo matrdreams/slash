@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Debian 11/12 host preparation. Sourced by host/install.sh.
 # Upstream loads distinct binder devices per instance and bind-mounts them into the container.
 # Prefer a kernel built with CONFIG_ANDROID_BINDERFS=y and
