@@ -49,7 +49,8 @@ async function runMock(t: WorkerTask) {
 
 async function runReal(t: WorkerTask) {
   const { AndroidDevice, AndroidAgent } = await import('@midscene/android');
-  const { defineAction, z } = (await import('@midscene/core')) as any;
+  const { defineAction } = (await import('@midscene/core/device')) as any;
+  const { z } = (await import('@midscene/core')) as any;
   const requestHuman = defineAction({
     name: 'RequestHuman',
     description: 'Hand control to a human: use for login, captcha, QR scan, payment, or any sensitive/irreversible action needing confirmation.',
