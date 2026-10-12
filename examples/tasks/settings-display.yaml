@@ -1,0 +1,4 @@
+device: u1
+goal: 打开设置并搜索“显示”
+mode: tree
+max_steps: 15

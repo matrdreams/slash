@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slashd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slashd
+  template:
+    metadata:
+      labels:
+        app: slashd
+    spec:
+      containers:
+        - name: slashd
+          image: ghcr.io/example/slash:0.1.0
+          args: ["slash", "serve", "--config", "/etc/slash/config.yaml"]
+          ports:
+            - name: http
+              containerPort: 8787
+          volumeMounts:
+            - name: config
+              mountPath: /etc/slash
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: slash-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slashd
+spec:
+  type: ClusterIP
+  selector:
+    app: slashd
+  ports:
+    - name: http
+      port: 8787
+      targetPort: http

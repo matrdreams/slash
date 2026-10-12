@@ -1,0 +1,3 @@
+# Certificate pins checked before adb install, in addition to the request's
+# expected_cert_sha256. Fingerprints are SHA-256, colons optional.
+apps: []

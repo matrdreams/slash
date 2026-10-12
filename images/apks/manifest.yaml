@@ -1,0 +1,25 @@
+# APKs installed into a slash Redroid image or via `slash device` provision.
+# fetch-apks.sh downloads an entry only when url and sha256 are both set, then checks the digest.
+# Certificate fingerprints (SHA-256, no colons, lowercase) are compared before adb install.
+# Leave sha256 empty until you have verified the upstream artifact yourself.
+#
+# ADBKeyBoard IME component: com.android.adbkeyboard/.AdbIME
+# Mobilerun Portal accessibility component:
+#   com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService
+# uiautomator2 pushes its own device-side jars on first connect; it is not pinned here.
+
+apks:
+  - name: ADBKeyBoard
+    package: com.android.adbkeyboard
+    version: v2.4-dev
+    url: https://github.com/senzhk/ADBKeyBoard/releases/download/v2.4-dev/keyboardservice-debug.apk
+    sha256: ""
+    cert_sha256: ""
+    note: "Chinese input via ADB_INPUT_B64. Pin sha256 and cert after you verify the release."
+  - name: MobilerunPortal
+    package: com.mobilerun.portal
+    version: ""
+    url: ""
+    sha256: ""
+    cert_sha256: ""
+    note: "Install with `mobilerun setup` or a release APK you have verified. Do not guess the URL."

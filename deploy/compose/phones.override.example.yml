@@ -1,0 +1,28 @@
+# Example of the file DeviceManager writes to SLASH data_root/phones.override.yml.
+# Generated output is per-device and always publishes ADB on 127.0.0.1.
+
+services:
+  phone-u1:
+    image: redroid/redroid:12.0.0-latest
+    privileged: true
+    volumes:
+      - /srv/slash/devices/u1/data:/data
+    ports:
+      - "127.0.0.1:5601:5555"
+    mem_limit: 3g
+    cpus: 2
+    networks:
+      - net-u1
+    restart: "no"
+    command:
+      - androidboot.redroid_width=720
+      - androidboot.redroid_height=1280
+      - androidboot.redroid_dpi=320
+      - androidboot.redroid_fps=15
+      - androidboot.redroid_gpu_mode=guest
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=223.5.5.5
+      - androidboot.use_memfd=true
+
+networks:
+  net-u1: {}

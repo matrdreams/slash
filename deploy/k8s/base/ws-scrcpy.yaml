@@ -1,0 +1,35 @@
+# In-cluster equivalent of binding ws-scrcpy to 127.0.0.1 on a host:
+# ClusterIP only, no NodePort. Caddy/slashd forward_auth sits in front.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ws-scrcpy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ws-scrcpy
+  template:
+    metadata:
+      labels:
+        app: ws-scrcpy
+    spec:
+      containers:
+        - name: ws-scrcpy
+          image: ghcr.io/example/ws-scrcpy:pinned
+          ports:
+            - name: http
+              containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ws-scrcpy
+spec:
+  type: ClusterIP
+  selector:
+    app: ws-scrcpy
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

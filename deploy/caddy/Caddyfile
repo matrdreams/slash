@@ -1,0 +1,19 @@
+# TLS terminator and auth reverse proxy.
+# /takeover/* is allowed only when slashd forward_auth accepts the signed link.
+# ws-scrcpy itself stays on 127.0.0.1:8000.
+
+{$SLASH_DOMAIN:localhost} {
+	encode gzip
+
+	handle /takeover/* {
+		forward_auth 127.0.0.1:8787 {
+			uri /api/v1/takeover/verify
+			copy_headers X-Forwarded-Uri X-Forwarded-Method
+		}
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8787
+	}
+}

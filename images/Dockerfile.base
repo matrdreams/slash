@@ -1,0 +1,18 @@
+# slash Redroid image.
+# GMS is intentionally not installed. Locale defaults are also applied at provision time
+# (Asia/Shanghai, zh-CN). Device fingerprint props are not baked in; pass ro.* at runtime
+# only when you accept the policy risk documented in the README.
+#
+#   docker build -f images/Dockerfile.base -t ghcr.io/ORG/slash-redroid:12 images
+#
+# Pin and download APKs first if you want them in the image:
+#   ./images/fetch-apks.sh
+# The fetch script refuses entries whose sha256 is empty.
+
+FROM redroid/redroid:12.0.0-latest
+
+COPY props/default.prop.tmpl /system/etc/slash-default.prop
+
+LABEL org.opencontainers.image.title="slash-redroid" \
+      org.opencontainers.image.description="Redroid 12 base for slash (no GMS, zh-CN defaults)" \
+      org.opencontainers.image.licenses="Apache-2.0"

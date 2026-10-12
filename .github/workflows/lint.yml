@@ -1,0 +1,15 @@
+name: lint
+on:
+  push:
+  pull_request:
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: bash -n host/install.sh host/check.sh dev/qemu/make-arm64-vm.sh dev/qemu/make-x86-vm.sh

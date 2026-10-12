@@ -1,0 +1,49 @@
+[project]
+name = "slash"
+version = "0.1.0"
+description = "Self-hosted personal AI agent for Android apps running on Redroid."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{name = "slash contributors"}]
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  "pydantic>=2.7",
+  "typer>=0.12",
+  "httpx>=0.27",
+  "sqlmodel>=0.0.22",
+  "pyyaml>=6.0",
+  "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "alembic>=1.13",
+]
+
+[project.scripts]
+slash = "slash.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["slash*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]

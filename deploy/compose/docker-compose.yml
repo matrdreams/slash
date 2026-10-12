@@ -1,0 +1,29 @@
+# Single Redroid instance for a first boot on the host.
+# ADB is published on 127.0.0.1 only. Do not change this to 0.0.0.0.
+# The device manager writes phones.override.yml for additional instances.
+
+services:
+  phone-u1:
+    image: ${SLASH_REDROID_IMAGE:-redroid/redroid:12.0.0-latest}
+    privileged: true
+    volumes:
+      - ${SLASH_DATA_ROOT:-/srv/slash/devices}/u1/data:/data
+    ports:
+      - "127.0.0.1:5601:5555"
+    mem_limit: 3g
+    cpus: 2
+    networks:
+      - net-u1
+    restart: "no"
+    command:
+      - androidboot.redroid_width=720
+      - androidboot.redroid_height=1280
+      - androidboot.redroid_dpi=320
+      - androidboot.redroid_fps=15
+      - androidboot.redroid_gpu_mode=guest
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=223.5.5.5
+      - androidboot.use_memfd=true
+
+networks:
+  net-u1: {}

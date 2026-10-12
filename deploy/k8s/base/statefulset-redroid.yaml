@@ -1,0 +1,74 @@
+# One Redroid instance per StatefulSet (replicas: 1) and a PVC for /data.
+# The Service is ClusterIP. Do not change it to NodePort or LoadBalancer:
+# ADB must not be reachable from outside the cluster.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: phone-u1
+  labels:
+    app: slash-phone
+    slash.dev/device: u1
+spec:
+  serviceName: phone-u1
+  replicas: 1
+  selector:
+    matchLabels:
+      app: slash-phone
+      slash.dev/device: u1
+  template:
+    metadata:
+      labels:
+        app: slash-phone
+        slash.dev/device: u1
+    spec:
+      nodeSelector:
+        slash.dev/binder: "true"
+      containers:
+        - name: redroid
+          image: redroid/redroid:12.0.0-latest
+          securityContext:
+            privileged: true
+          args:
+            - androidboot.redroid_width=720
+            - androidboot.redroid_height=1280
+            - androidboot.redroid_dpi=320
+            - androidboot.redroid_fps=15
+            - androidboot.redroid_gpu_mode=guest
+            - androidboot.redroid_net_ndns=1
+            - androidboot.redroid_net_dns1=223.5.5.5
+            - androidboot.use_memfd=true
+          ports:
+            - name: adb
+              containerPort: 5555
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 16Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phone-u1
+spec:
+  type: ClusterIP
+  selector:
+    app: slash-phone
+    slash.dev/device: u1
+  ports:
+    - name: adb
+      port: 5555
+      targetPort: adb

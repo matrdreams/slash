@@ -1,0 +1,24 @@
+#cloud-config
+# Dev VM bootstrap. The image user is for local QEMU only; do not reuse this password.
+hostname: slash-dev
+users:
+  - name: slash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    plain_text_passwd: slash
+ssh_pwauth: true
+package_update: true
+packages:
+  - docker.io
+  - adb
+  - python3
+  - ca-certificates
+runcmd:
+  - [bash, -lc, "DEBIAN_FRONTEND=noninteractive apt-get install -y linux-generic || true"]
+  - [bash, -lc, "DEBIAN_FRONTEND=noninteractive apt-get install -y linux-modules-extra-$(uname -r) || true"]
+  - [bash, -lc, "printf '%s\n' binder_linux > /etc/modules-load.d/redroid.conf"]
+  - [bash, -lc, "printf '%s\n' 'options binder_linux devices=binder,hwbinder,vndbinder' > /etc/modprobe.d/redroid.conf"]
+  - [bash, -lc, "modprobe binder_linux devices=binder,hwbinder,vndbinder || true"]
+  - [bash, -lc, "systemctl enable --now docker || true"]
+  - [bash, -lc, "mkdir -p /opt/slash && echo 'copy the slash repo to /opt/slash and run sudo host/install.sh' > /etc/motd"]

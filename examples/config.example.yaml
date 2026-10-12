@@ -1,0 +1,62 @@
+# slash config. Copy to config.yaml and point secrets at files you control.
+# Model names stay here. Do not hardcode them in application code.
+
+server:
+  bind: 127.0.0.1:8787
+  public_base_url: http://127.0.0.1:8787
+  secret_key_file: /etc/slash/secret
+
+storage:
+  db_url: sqlite:////var/lib/slash/slash.db
+  blob_dir: /var/lib/slash/blobs
+  retention_days: 7
+
+devices:
+  backend: compose
+  data_root: /srv/slash/devices
+  default_image: redroid/redroid:12.0.0-latest
+  adb_port_base: 5600
+  idle_timeout_min: 30
+  boot_timeout_s: 90
+  defaults:
+    width: 720
+    height: 1280
+    dpi: 320
+    fps: 15
+    gpu_mode: guest
+    mem: 3g
+    cpus: 2
+    dns: ["223.5.5.5"]
+    use_memfd: true
+
+agent:
+  planner: native
+  mode: tree+vision
+  max_steps: 40
+  screenshot_long_edge: 1024
+  confirm_sensitive: true
+
+llm:
+  default: qwen-vl
+  data_residency: cn
+  providers:
+    qwen-vl:
+      kind: openai_compat
+      # DashScope compatible mode. Confirm the current model id before use.
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      model: qwen-vl-max
+      api_key_env: QWEN_API_KEY
+      region: cn
+      vision: true
+      coord_space: pixel
+    local:
+      kind: openai_compat
+      base_url: http://127.0.0.1:8000/v1
+      model: local-vlm
+      region: local
+      vision: true
+
+takeover:
+  ttl_s: 300
+  record: true
+  ws_scrcpy_upstream: http://127.0.0.1:8000
