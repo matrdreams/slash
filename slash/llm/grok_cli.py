@@ -84,7 +84,7 @@ class GrokCliProvider:
             usage=usage,
             latency_ms=latency_ms,
             raw=raw,
-            cost_cny=0.0,
+            cost_cny=_cost_cny(raw),
         )
 
     def argv(self, prompt: str, *, with_images: bool) -> list[str]:
@@ -149,13 +149,18 @@ class GrokCliProvider:
         if image_paths:
             listed = "\n".join(image_paths)
             parts.append(
-                "Screenshot files (grok --help has no image attachment flag; "
-                f"read these paths if you need the pixels):\n{listed}"
+                "Screenshot files (grok CLI has no attachment flag; read_file on a PNG returns the image "
+                f"to the model):\n{listed}"
             )
         parts.append(
             "Reply with one JSON object only. The action discriminator field is "
             '"type" (for example {"type":"launch","package":"com.android.settings"}). '
-            "Do not use the key action. Do not call tools. Do not edit files."
+            "Do not use the key action. Do not edit files. "
+            + (
+                "Call read_file on the screenshot path(s) above first to see the screen, then answer."
+                if image_paths
+                else "Do not call tools."
+            )
         )
         return "\n\n".join(parts)
 
@@ -214,3 +219,14 @@ def _usage(raw: dict, images: list[bytes]) -> Usage:
         prompt_tokens = 0
         completion_tokens = 0
     return Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, images=len(images))
+
+
+USD_TO_CNY = 7.1
+
+
+def _cost_cny(raw: dict) -> float:
+    """grok CLI reports total_cost_usd; convert at a fixed rate for budget accounting."""
+    try:
+        return round(float(raw.get("total_cost_usd") or 0.0) * USD_TO_CNY, 6)
+    except (TypeError, ValueError):
+        return 0.0

@@ -14,4 +14,5 @@ Tests: 49 passed, 5 skipped (integration stays skipped unless `SLASH_ADB_SERIAL`
 | M7+ | Not started (physical-device backend stub only) | |
 
 ## Detached jobs
+- 2026-10-12 22:58 CST: 10-task AOSP eval `eval/aosp_tasks.py`, PID 1807420, log `/workspace/grok-logs/eval-aosp10.log`, results `eval/results/summary.jsonl` (+ per-task PNG). Config `/tmp/slash-m1/config.yaml`.
 - M0/M1 check on the TCG VM finished in this session. See `docs/m1-validation.md` and `docs/dev-vm.md`.

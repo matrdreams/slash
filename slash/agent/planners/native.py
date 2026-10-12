@@ -12,6 +12,9 @@ from slash.store.tables import DeviceRow
 
 
 class NativePlanner:
+    async def verify(self, goal: str, history: list[dict], obs: Observation):
+        return await verify_goal(self.provider, goal, history, obs)
+
     name = "native"
 
     def __init__(self, provider, *, mode: str) -> None:
@@ -26,6 +29,7 @@ class NativePlanner:
         device: DeviceRow,
         *,
         human_reply: str = "",
+        hints: dict | None = None,
     ) -> tuple[Action, LLMResult]:
         user = {
             "goal": goal,
@@ -36,6 +40,8 @@ class NativePlanner:
             "history": history[-8:],
             "human_reply": human_reply,
         }
+        if hints:
+            user.update(hints)
         messages = [
             Message(role="system", content=NATIVE_SYSTEM),
             Message(role="user", content=json.dumps(user, ensure_ascii=False)),
@@ -66,3 +72,17 @@ def _action_from_result(result: LLMResult) -> Action:
         return ACTION_ADAPTER.validate_python(parse_json_payload(result.text))
     except Exception as exc:
         raise LLMError(f"planner output is not an action: {exc}") from exc
+
+
+async def verify_goal(provider, goal: str, history: list[dict], obs: Observation) -> tuple[bool, str, LLMResult]:
+    """Ask the provider a yes/no question: is the goal already achieved on this screen?"""
+    from slash.agent.completion import VERIFY_SYSTEM, parse_verdict
+
+    user = {"goal": goal, "tree": obs.tree_text, "history": history[-6:]}
+    messages = [
+        Message(role="system", content=VERIFY_SYSTEM),
+        Message(role="user", content=json.dumps(user, ensure_ascii=False)),
+    ]
+    result = await provider.complete(messages, images=[], schema=None)
+    achieved, evidence = parse_verdict(result.text)
+    return achieved, evidence, result

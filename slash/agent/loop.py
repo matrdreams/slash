@@ -112,6 +112,10 @@ class AgentRuntime:
         return self.store.require_task(task.id)
 
     async def _steps(self, task: TaskRow, device, serial: str) -> None:
+        from slash.agent.completion import loop_state, menu_open, screen_signature, should_verify
+
+        signatures: list[str] = []
+        verified_at: set[int] = set()
         while True:
             task = self.store.require_task(task.id)
             if task.status == TaskStatus.CANCELLED.value:
@@ -142,12 +146,36 @@ class AgentRuntime:
                 await self._need_human(task, f"检测到{reason}")
                 return
 
+            history = self._history(task.id)
+            signatures.append(screen_signature(obs.tree_text))
+            loop = loop_state(signatures, [h["action"] for h in history])
+            hints: dict = {}
+            if loop.looping:
+                hints["repeat_warning"] = (
+                    f"screen unchanged {loop.repeated_screens}x, same action {loop.repeated_actions}x"
+                )
+            if menu_open(obs.tree_text):
+                hints["menu_open"] = "a popup menu is open; close it with key BACK if not needed"
+            reason = should_verify(steps_used=task.steps_used, max_steps=task.max_steps, loop=loop)
+            verifier = getattr(self.planner, "verify", None)
+            if reason and verifier is not None and task.steps_used not in verified_at:
+                verified_at.add(task.steps_used)
+                achieved, evidence, vres = await verifier(task.goal, history, obs)
+                self._charge(task, vres)
+                self._emit(task, "verify", {"reason": reason, "achieved": achieved, "evidence": evidence})
+                if achieved:
+                    done = Done(success=True, result=f"[verifier:{reason}] {evidence}")
+                    self._record(task, obs, done, vres, started, error="")
+                    self._succeed(self.store.require_task(task.id), done.result)
+                    return
+                hints["verifier"] = f"goal not yet achieved: {evidence}"
             action, result = await self.planner.next(
                 task.goal,
-                self._history(task.id),
+                history,
                 obs,
                 device,
                 human_reply=task.human_reply,
+                **({"hints": hints} if hints and _accepts_hints(self.planner) else {}),
             )
             self._charge(task, result)
             if task.require_confirm:
@@ -342,3 +370,12 @@ class AgentRuntime:
                 if row.task_id == task_id:
                     await self.takeover.release(row.id)
         return await self.resume(task_id)
+
+
+def _accepts_hints(planner) -> bool:
+    import inspect
+
+    try:
+        return "hints" in inspect.signature(planner.next).parameters
+    except (TypeError, ValueError):
+        return False
