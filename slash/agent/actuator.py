@@ -39,6 +39,17 @@ def input_broadcast(text: str) -> str:
     return f"am broadcast -a ADB_INPUT_B64 --es msg {encoded}"
 
 
+def _default_edit_target(nodes: list[UINode]) -> int | None:
+    """Focused EditText, else the only EditText on screen."""
+    edits = [n for n in nodes if "EditText" in n.class_name or "AutoComplete" in n.class_name]
+    focused = [n for n in edits if getattr(n, "focused", False)]
+    if focused:
+        return None  # already focused; tapping again could move the caret only
+    if len(edits) == 1:
+        return edits[0].element_id
+    return None
+
+
 class Actuator:
     def __init__(self, adb: SupportsAdb, sleeper: Sleeper | None = None) -> None:
         self.adb = adb
@@ -68,18 +79,24 @@ class Actuator:
             await self.adb.shell(serial, f"input swipe {x} {y} {x} {y} {action.ms}")
             return
         if isinstance(action, Swipe):
-            self._inside(action.x1, action.y1, width, height)
-            self._inside(action.x2, action.y2, width, height)
-            await self.adb.shell(
-                serial,
-                f"input swipe {action.x1} {action.y1} {action.x2} {action.y2} {action.ms}",
-            )
+            x1, x2 = (min(max(v, 1), width - 1) for v in (action.x1, action.x2))
+            y1, y2 = (min(max(v, 1), height - 1) for v in (action.y1, action.y2))
+            await self.adb.shell(serial, f"input swipe {x1} {y1} {x2} {y2} {max(action.ms, 100)}")
             return
         if isinstance(action, TypeText):
-            if action.element_id is not None:
-                x, y = self._point(action.element_id, None, None, nodes, width, height)
-                await self.adb.shell(serial, f"input tap {x} {y}")
+            # Switch IME first: switching after the tap can drop the input connection, which
+            # is why 显示 never reached the Settings search box.
+            await self.adb.shell(serial, f"ime enable {ADB_IME}")
             await self.adb.shell(serial, f"ime set {ADB_IME}")
+            target = action.element_id
+            if target is None:
+                target = _default_edit_target(nodes)
+            if target is not None:
+                x, y = self._point(target, None, None, nodes, width, height)
+                await self.adb.shell(serial, f"input tap {x} {y}")
+                await self.sleeper(0.4)
+                # Replace existing content so set_text semantics hold.
+                await self.adb.shell(serial, "am broadcast -a ADB_CLEAR_TEXT")
             await self.adb.shell(serial, input_broadcast(action.text))
             if action.submit:
                 await self.adb.shell(serial, f"input keyevent {KEYCODES['ENTER']}")

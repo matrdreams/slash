@@ -16,7 +16,7 @@ from slash.agent.observer import Observer
 from slash.agent.policy import as_confirmation, sensitive_reason
 from slash.agent.redact import should_redact
 from slash.agent.watchers import WatcherRule, match_watcher
-from slash.core.errors import BudgetExceeded, ConflictError, SlashError
+from slash.core.errors import BudgetExceeded, ConflictError, LLMError, SlashError
 from slash.core.events import Event, EventBus
 from slash.core.metrics import Metrics
 from slash.core.models import TERMINAL_TASK_STATUSES, TaskStatus, assert_transition
@@ -26,6 +26,8 @@ from slash.store.db import Store
 from slash.store.ids import new_id
 from slash.store.tables import StepRow, TaskRow
 from slash.store.timeutil import utcnow
+
+MAX_CONSECUTIVE_ERRORS = 3
 
 
 class AgentRuntime:
@@ -116,6 +118,7 @@ class AgentRuntime:
 
         signatures: list[str] = []
         verified_at: set[int] = set()
+        bad_streak = 0
         while True:
             task = self.store.require_task(task.id)
             if task.status == TaskStatus.CANCELLED.value:
@@ -169,14 +172,26 @@ class AgentRuntime:
                     self._succeed(self.store.require_task(task.id), done.result)
                     return
                 hints["verifier"] = f"goal not yet achieved: {evidence}"
-            action, result = await self.planner.next(
-                task.goal,
-                history,
-                obs,
-                device,
-                human_reply=task.human_reply,
-                **({"hints": hints} if hints and _accepts_hints(self.planner) else {}),
-            )
+            try:
+                action, result = await self.planner.next(
+                    task.goal,
+                    history,
+                    obs,
+                    device,
+                    human_reply=task.human_reply,
+                    **({"hints": hints} if hints and _accepts_hints(self.planner) else {}),
+                )
+            except LLMError as exc:
+                # Invalid action JSON is recoverable: record it so the model sees the error
+                # in history on the next step, and only give up after repeated failures.
+                bad_streak += 1
+                from slash.agent.actions import Wait
+
+                self._record(task, obs, Wait(ms=0), None, started, error=f"invalid action: {exc}"[:600])
+                if bad_streak >= MAX_CONSECUTIVE_ERRORS:
+                    self._fail(self.store.require_task(task.id), f"{bad_streak} invalid actions in a row: {exc}")
+                    return
+                continue
             self._charge(task, result)
             if task.require_confirm:
                 blocked = sensitive_reason(action, obs.nodes)
@@ -196,9 +211,13 @@ class AgentRuntime:
             try:
                 await self.actuator.execute(serial, action, obs.nodes, width=device.width, height=device.height)
             except Exception as exc:
-                self._record(task, obs, action, result, started, error=str(exc))
-                self._fail(task, str(exc))
-                return
+                bad_streak += 1
+                self._record(task, obs, action, result, started, error=f"action failed: {exc}"[:600])
+                if bad_streak >= MAX_CONSECUTIVE_ERRORS:
+                    self._fail(self.store.require_task(task.id), str(exc))
+                    return
+                continue
+            bad_streak = 0
             self._record(task, obs, action, result, started, error="")
             self.manager.touch(task.device_id)
 

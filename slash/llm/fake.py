@@ -40,7 +40,10 @@ class ScriptedProvider:
         self._index += 1
         text = json.dumps(item, ensure_ascii=False)
         started = time.monotonic()
-        parsed = validate_schema(schema, text) if schema is not None else item
+        try:
+            parsed = validate_schema(schema, text) if schema is not None else item
+        except Exception:
+            parsed = None  # mirror real providers: the planner reports invalid actions
         self.calls.append(
             {
                 "messages": [{"role": message.role, "content": message.content} for message in messages],

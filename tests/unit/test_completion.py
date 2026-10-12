@@ -129,3 +129,23 @@ def test_tree_exposes_switch_checked_state():
     )
     _, text = compress(parse_hierarchy(xml))
     assert "checked=true" in text and "Switch" in text
+
+
+def test_invalid_action_is_recoverable(world):
+    bad = {"type": "swipe", "foo": 1}
+    done = {"type": "done", "success": True, "result": "ok"}
+    ctx = world(actions=[bad, done], confirm_sensitive=False)
+    ctx.adb.hierarchy_xml = WIFI
+    task = _run(ctx)
+    assert task.status == "SUCCEEDED", task.error
+    steps = ctx.store.list_steps(task.id)
+    assert "invalid action" in steps[0].error
+
+
+def test_three_invalid_actions_fail(world):
+    bad = {"type": "swipe", "foo": 1}
+    ctx = world(actions=[bad, bad, bad, bad], confirm_sensitive=False)
+    ctx.adb.hierarchy_xml = WIFI
+    task = _run(ctx)
+    assert task.status == "FAILED"
+    assert "invalid actions in a row" in task.error

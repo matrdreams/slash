@@ -75,8 +75,10 @@ class GrokCliProvider:
         if schema is not None:
             try:
                 parsed = validate_schema(schema, text)
-            except Exception as exc:
-                raise LLMError(f"could not parse grok cli output: {exc}") from exc
+            except Exception:
+                # Leave parsed=None: the planner reports the validation error back to the
+                # model as a recoverable step instead of failing the whole task.
+                parsed = None
         usage = _usage(raw, blobs)
         return LLMResult(
             text=text,

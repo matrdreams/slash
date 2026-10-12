@@ -71,7 +71,9 @@ def _action_from_result(result: LLMResult) -> Action:
 
         return ACTION_ADAPTER.validate_python(parse_json_payload(result.text))
     except Exception as exc:
-        raise LLMError(f"planner output is not an action: {exc}") from exc
+        raise LLMError(
+            f"planner output is not a valid action ({str(exc)[:300]}); output was: {result.text[:200]}"
+        ) from exc
 
 
 async def verify_goal(provider, goal: str, history: list[dict], obs: Observation) -> tuple[bool, str, LLMResult]:

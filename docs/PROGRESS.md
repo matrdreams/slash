@@ -1,6 +1,6 @@
 # Slash progress (2026-10-12)
 
-Tests: 49 passed, 5 skipped (integration stays skipped unless `SLASH_ADB_SERIAL` is set). ruff clean on the grok_cli files.
+Tests: 73 passed, 5 skipped (integration stays skipped unless `SLASH_ADB_SERIAL` is set). ruff clean on the grok_cli files.
 
 | Milestone | Status | Evidence / gaps |
 |---|---|---|
@@ -14,5 +14,6 @@ Tests: 49 passed, 5 skipped (integration stays skipped unless `SLASH_ADB_SERIAL`
 | M7+ | Not started (physical-device backend stub only) | |
 
 ## Detached jobs
+- 2026-10-12 23:43 CST: AOSP eval rerun r2 after action-normalizer/EditText-label/IME-order/recoverable-error fixes, PID 1836423, log `/workspace/grok-logs/eval-aosp10-r2.log`, results `eval/results-r2/summary.jsonl`.
 - 2026-10-12 22:58 CST: 10-task AOSP eval `eval/aosp_tasks.py`, PID 1807420, log `/workspace/grok-logs/eval-aosp10.log`, results `eval/results/summary.jsonl` (+ per-task PNG). Config `/tmp/slash-m1/config.yaml`.
 - M0/M1 check on the TCG VM finished in this session. See `docs/m1-validation.md` and `docs/dev-vm.md`.
