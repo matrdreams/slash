@@ -155,6 +155,26 @@ def test_grok_cli_shells_out_and_parses_json(monkeypatch, tmp_path):
     assert seen["cwd"] == str(tmp_path / "cwd")
 
 
+def test_grok_cli_maps_action_key_to_type(monkeypatch, tmp_path):
+    provider = GrokCliProvider(name="grok", cwd=str(tmp_path), shot_dir=str(tmp_path))
+
+    def fake_run(argv, **kwargs):
+        stdout = json.dumps(
+            {
+                "text": '{"action":"done","success":true,"result":"ok"}',
+                "usage": {"input_tokens": 2, "output_tokens": 1},
+            }
+        )
+        return subprocess.CompletedProcess(argv, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("slash.llm.grok_cli.subprocess.run", fake_run)
+    result = asyncio.run(
+        provider.complete([Message(role="user", content="hi")], schema=ACTION_ADAPTER)
+    )
+    assert result.parsed.type == "done"
+    assert result.parsed.success is True
+
+
 def test_scripted_provider_is_offline():
     from slash.llm.fake import ScriptedProvider
 

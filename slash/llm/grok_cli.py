@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from slash.core.errors import LLMError
-from slash.llm.base import LLMResult, Message, Usage, validate_schema
+from slash.llm.base import LLMResult, Message, Usage, parse_json_payload, validate_schema
 
 DEFAULT_GROK_BIN = os.environ.get("GROK_BIN", "/home/box/.grok/bin/grok")
 
@@ -70,6 +70,7 @@ class GrokCliProvider:
             detail = (completed.stderr or completed.stdout or "").strip()
             raise LLMError(f"grok cli exited {completed.returncode}: {detail[:500]}")
         text, raw = _decode_stdout(completed.stdout or "")
+        text = _coerce_action_text(text)
         parsed = None
         if schema is not None:
             try:
@@ -151,7 +152,11 @@ class GrokCliProvider:
                 "Screenshot files (grok --help has no image attachment flag; "
                 f"read these paths if you need the pixels):\n{listed}"
             )
-        parts.append("Reply with one JSON object only. Do not call tools. Do not edit files.")
+        parts.append(
+            "Reply with one JSON object only. The action discriminator field is "
+            '"type" (for example {"type":"launch","package":"com.android.settings"}). '
+            "Do not use the key action. Do not call tools. Do not edit files."
+        )
         return "\n\n".join(parts)
 
 
@@ -181,6 +186,21 @@ def _decode_stdout(stdout: str) -> tuple[str, dict]:
     if not text.strip():
         raise LLMError("grok cli JSON response has no text")
     return text, payload
+
+
+def _coerce_action_text(text: str) -> str:
+    """Grok often emits {"action": "launch"} instead of the schema's "type" field."""
+    try:
+        payload = parse_json_payload(text)
+    except (ValueError, json.JSONDecodeError):
+        return text
+    if not isinstance(payload, dict):
+        return text
+    if "type" not in payload and isinstance(payload.get("action"), str):
+        payload = dict(payload)
+        payload["type"] = payload.pop("action")
+        return json.dumps(payload, ensure_ascii=False)
+    return text
 
 
 def _usage(raw: dict, images: list[bytes]) -> Usage:
