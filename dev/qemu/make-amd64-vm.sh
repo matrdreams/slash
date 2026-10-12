@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Boot an Ubuntu 22.04 amd64 VM that runs Redroid in docker, with adb forwarded
+# to 127.0.0.1:${ADB_PORT}. Reproduces the setup verified on 2026-10-12.
+#   ACCEL=kvm (default) | tcg   -- tcg works but is slow (~10 min to boot Android)
+# Usage: WORKDIR=/workspace/vm dev/qemu/make-amd64-vm.sh   (runs qemu in background)
+set -euo pipefail
+WORKDIR=${WORKDIR:-/workspace/vm}
+ACCEL=${ACCEL:-kvm}
+SMP=${SMP:-6}; MEM=${MEM:-8192}; DISK_SIZE=${DISK_SIZE:-40G}
+SSH_PORT=${SSH_PORT:-22022}; ADB_PORT=${ADB_PORT:-15555}
+REDROID_IMAGE=${REDROID_IMAGE:-redroid/redroid:12.0.0_64only-latest}
+IMAGE_URL=${IMAGE_URL:-https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img}
+
+mkdir -p "$WORKDIR"; cd "$WORKDIR"
+[[ -f jammy.img ]] || wget -O jammy.img "$IMAGE_URL"
+[[ -f vmkey ]] || ssh-keygen -t ed25519 -N '' -f vmkey
+[[ -f vm.qcow2 ]] || qemu-img create -f qcow2 -F qcow2 -b jammy.img vm.qcow2 "$DISK_SIZE"
+cat > user-data <<UD
+#cloud-config
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys: ["$(cat vmkey.pub)"]
+package_update: true
+runcmd:
+  - apt-get install -y linux-modules-extra-\$(uname -r) docker.io
+  - modprobe binder_linux devices="binder,hwbinder,vndbinder"
+  - echo binder_linux > /etc/modules-load.d/redroid.conf
+  - echo 'options binder_linux devices="binder,hwbinder,vndbinder"' > /etc/modprobe.d/redroid.conf
+  - docker run -d --privileged --restart unless-stopped --name redroid -p 5555:5555 ${REDROID_IMAGE}
+  - touch /root/ready
+UD
+printf 'instance-id: slash-amd64\nlocal-hostname: slash\n' > meta-data
+cloud-localds seed.img user-data meta-data
+
+if [[ $ACCEL == kvm ]]; then
+  [[ -r /dev/kvm && -w /dev/kvm ]] || { echo "/dev/kvm not usable; set ACCEL=tcg" >&2; exit 1; }
+  ACC=(-accel kvm -cpu host)
+else
+  ACC=(-accel tcg,thread=multi -cpu max)
+fi
+nohup qemu-system-x86_64 "${ACC[@]}" -smp "$SMP" -m "$MEM" \
+  -drive file=vm.qcow2,if=virtio -drive file=seed.img,if=virtio,format=raw \
+  -nic user,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22,hostfwd=tcp:127.0.0.1:${ADB_PORT}-:5555 \
+  -display none -serial file:serial.log > qemu.out 2>&1 &
+echo "qemu pid $!  ssh: ssh -i $WORKDIR/vmkey -p $SSH_PORT ubuntu@127.0.0.1"
+echo "then: adb connect 127.0.0.1:$ADB_PORT && adb -s 127.0.0.1:$ADB_PORT shell getprop sys.boot_completed"
