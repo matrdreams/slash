@@ -13,6 +13,7 @@ REDROID_IMAGE=${REDROID_IMAGE:-redroid/redroid:12.0.0_64only-latest}
 IMAGE_URL=${IMAGE_URL:-https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img}
 
 mkdir -p "$WORKDIR"; cd "$WORKDIR"
+[[ -f jammy.img ]] || { [[ -f /workspace/vm/jammy.img ]] && cp /workspace/vm/jammy.img .; } || true
 [[ -f jammy.img ]] || wget -O jammy.img "$IMAGE_URL"
 [[ -f vmkey ]] || ssh-keygen -t ed25519 -N '' -f vmkey
 [[ -f vm.qcow2 ]] || qemu-img create -f qcow2 -F qcow2 -b jammy.img vm.qcow2 "$DISK_SIZE"
@@ -39,13 +40,19 @@ cloud-localds seed.img user-data meta-data
 
 if [[ $ACCEL == kvm ]]; then
   [[ -r /dev/kvm && -w /dev/kvm ]] || { echo "/dev/kvm not usable; set ACCEL=tcg" >&2; exit 1; }
+  # /dev/kvm can be rw yet broken (2026-10-12 box: host oops in kvm_arch_vcpu_create, qemu hangs
+  # forever at 0 CPU). Probe with a throwaway VM first.
+  if ! printf 'quit\n' | timeout 15 qemu-system-x86_64 -accel kvm -cpu host -display none -nodefaults -S -monitor stdio >/dev/null 2>&1; then
+    echo "KVM probe failed/hung (check dmesg for kvm_spurious_fault); rerun with ACCEL=tcg" >&2; exit 1
+  fi
   ACC=(-accel kvm -cpu host)
 else
   ACC=(-accel tcg,thread=multi -cpu max)
 fi
-nohup qemu-system-x86_64 "${ACC[@]}" -smp "$SMP" -m "$MEM" \
+setsid nohup qemu-system-x86_64 "${ACC[@]}" -smp "$SMP" -m "$MEM" \
   -drive file=vm.qcow2,if=virtio -drive file=seed.img,if=virtio,format=raw \
   -nic user,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22,hostfwd=tcp:127.0.0.1:${ADB_PORT}-:5555 \
-  -display none -serial file:serial.log > qemu.out 2>&1 &
+  -display none -serial file:serial.log -monitor unix:mon.sock,server,nowait -pidfile qemu.pid < /dev/null > qemu.out 2>&1 &
 echo "qemu pid $!  ssh: ssh -i $WORKDIR/vmkey -p $SSH_PORT ubuntu@127.0.0.1"
 echo "then: adb connect 127.0.0.1:$ADB_PORT && adb -s 127.0.0.1:$ADB_PORT shell getprop sys.boot_completed"
+echo "after boot: dev/qemu/post-boot.sh 127.0.0.1:$ADB_PORT  (waits for boot, installs ADBKeyBoard)"

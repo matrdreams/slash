@@ -5,11 +5,18 @@ Ubuntu 22.04 amd64 VM on the box; `sys.boot_completed=1`; 5/5 integration tests 
 Screenshot: docs/img/redroid-boot.png.
 
 The running VM (files in /workspace/vm) was started with **TCG** (`-accel tcg -cpu max`,
-disk vm2.qcow2, serial2.log) because /dev/kvm was not usable when it launched. KVM works now;
-new VMs from `dev/qemu/make-amd64-vm.sh` use KVM by default.
+disk vm2.qcow2, serial2.log) because KVM is not usable here.
+
+**KVM status (2026-10-12 22:50):** `/dev/kvm` is rw, but creating a vCPU triggers a host kernel
+BUG (`kernel BUG at arch/x86/kvm/x86.c:702`, `kvm_spurious_fault` in `kvm_arch_vcpu_create`
+in dmesg) and qemu hangs at 0 CPU time forever. So the KVM VM (/workspace/vm-kvm, ports
+22023/15556) could not be built; the TCG VM stays the default. The script now probes KVM
+with a 15 s throwaway qemu and exits if it hangs. Needs a host/hypervisor fix (nested VMX).
+
+Baseline (TCG VM, 10 runs): `adb exec-out screencap -p` avg 2.50 s, `uiautomator dump` avg 3.58 s.
 
 Host forwards listen on `127.0.0.1` only (`22022` SSH, `15555` ADB). Inside the guest,
-Redroid's published port is `127.0.0.1:5555` (`dev/qemu/adb-localhost.sh` drops a wildcard
+Redroid's published port (new VMs) is `127.0.0.1:5555` (`dev/qemu/adb-localhost.sh` drops a wildcard
 `docker-proxy` and DNATs NIC tcp/5555 onto that loopback port so the existing hostfwd
 still works). `binder_linux` is listed in `/etc/modules-load.d/redroid.conf` with
 `options binder_linux devices=binder,hwbinder,vndbinder` in `/etc/modprobe.d/redroid.conf`.
@@ -27,3 +34,5 @@ Cloud-init installs linux-modules-extra + docker.io, loads binder_linux
 (binder,hwbinder,vndbinder) via modules-load.d and modprobe.d, publishes
 `127.0.0.1:5555:5555`, and enables `slash-adb-localhost.service` so QEMU
 hostfwd to guest tcp/5555 reaches that loopback port.
+After boot: `dev/qemu/post-boot.sh 127.0.0.1:<ADB_PORT>` waits for `sys.boot_completed` and
+installs/enables ADBKeyBoard. If KVM is broken: `ACCEL=tcg` (~10 min Android boot).
