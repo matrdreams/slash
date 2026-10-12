@@ -1,6 +1,6 @@
 # Design: Midscene + uiautomator2 (spike, 2026-10-13)
 
-Status: feasibility spike done. **Blocked on model access** (no vision-model API key). Old agent loop is NOT deleted yet.
+Status: migration part 1 done; see docs/midscene-migration.md. Legacy loop deleted.
 
 ## 1. Findings
 
