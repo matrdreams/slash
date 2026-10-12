@@ -31,3 +31,8 @@ Config: `agent.worker_url` (default `http://127.0.0.1:18790`; `fake` gives the i
 - Watchers (popup auto-dismiss) are removed. Midscene handles popups visually.
 - `slash/llm/*` is deleted, and `llm:` config is kept only for compatibility and the fake script.
 - uiautomator2 (`slash/devices/u2.py`) is used for checkers and verification. Midscene still drives input through its own adb stack.
+
+## E2E result (2026-10-13 01:29 CST)
+`dev/e2e_midscene.py`: slash API → MidsceneRuntime → worker (Doubao `doubao-seed-2-1-turbo-260628`, Ark) → Redroid A12 (TCG, 127.0.0.1:15555).
+Goal "open Settings and search Display" → **SUCCEEDED**, 9 step events, 77.1 s wall. The u2 checker found `search_src_text == "Display"`.
+Note: Midscene writes reports to `$MIDSCENE_RUN_DIR/report/` (the worker sets the run dir to the parent of `MIDSCENE_WORKER_REPORT_DIR`). The returned `report_path` is authoritative.
