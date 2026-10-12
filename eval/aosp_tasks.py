@@ -34,13 +34,11 @@ def dump() -> str:
 
 
 def search_text(xml: str) -> str:
-    m = re.search(r'resource-id="android:id/search_src_text"[^>]*', xml) or re.search(
-        r'text="([^"]*)"[^>]*resource-id="android:id/search_src_text"', xml
-    )
-    if not m:
-        return ""
-    t = re.search(r'text="([^"]*)"', m.group(0))
-    return t.group(1) if t else (m.group(1) if m.groups() else "")
+    for node in re.findall(r"<node [^>]*>", xml):
+        if 'resource-id="android:id/search_src_text"' in node:
+            t = re.search(r' text="([^"]*)"', node)
+            return t.group(1) if t else ""
+    return ""
 
 
 def contacts() -> str:
