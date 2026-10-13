@@ -36,3 +36,9 @@ Cloud-init installs linux-modules-extra + docker.io, loads binder_linux
 hostfwd to guest tcp/5555 reaches that loopback port.
 After boot: `dev/qemu/post-boot.sh 127.0.0.1:<ADB_PORT>` waits for `sys.boot_completed` and
 installs/enables ADBKeyBoard. If KVM is broken: `ACCEL=tcg` (~10 min Android boot).
+
+## Setup / restore (2026-10-13)
+    dev/setup.sh          # host apt deps, .venv, worker npm ci (idempotent)
+    dev/vm-restore.sh     # boot from /workspace/cache parts if present, else build from scratch (TCG only)
+Cache lives in Google Drive `Code/slash-cache` (MANIFEST.md there): 28 × 95 MiB parts of a standalone
+compressed qcow2 with Redroid inside. Download them with the Drive connector into /workspace/cache first.
