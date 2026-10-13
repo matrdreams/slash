@@ -165,6 +165,13 @@ class Store:
             db.refresh(row)
             return row
 
+    def save_step(self, row: StepRow) -> StepRow:
+        with self.session() as db:
+            merged = db.merge(row)
+            db.commit()
+            db.refresh(merged)
+            return merged
+
     def list_steps(self, task_id: str) -> list[StepRow]:
         with self.session() as db:
             stmt = select(StepRow).where(StepRow.task_id == task_id).order_by(StepRow.idx)

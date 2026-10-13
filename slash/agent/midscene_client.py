@@ -21,12 +21,14 @@ class MidsceneClient:
         return r.json()
 
     async def submit(self, *, task_id: str, device_serial: str, goal: str, max_steps: int | None = None,
-                     context: str = "") -> dict:
+                     context: str = "", max_cost_cny: float | None = None) -> dict:
         body: dict[str, Any] = {"task_id": task_id, "device_serial": device_serial, "goal": goal}
         if max_steps:
             body["max_steps"] = max_steps
         if context:
             body["context"] = context
+        if max_cost_cny is not None:
+            body["max_cost_cny"] = max_cost_cny
         r = await self._client.post("/tasks", json=body)
         r.raise_for_status()
         return r.json()
@@ -76,8 +78,9 @@ class FakeMidsceneClient:
     async def health(self) -> dict:
         return {"ok": True, "mock": True}
 
-    async def submit(self, *, task_id: str, device_serial: str, goal: str, max_steps=None, context: str = "") -> dict:
-        self.submitted.append({"task_id": task_id, "device_serial": device_serial, "goal": goal, "context": context})
+    async def submit(self, *, task_id: str, device_serial: str, goal: str, max_steps=None, context: str = "",
+                     max_cost_cny: float | None = None) -> dict:
+        self.submitted.append({"max_cost_cny": max_cost_cny, "task_id": task_id, "device_serial": device_serial, "goal": goal, "context": context})
         events: list[dict] = [{"seq": 0, "type": "status", "data": {"state": "running"}}]
         terminal = {"done", "succeeded", "ask_human", "need_human", "confirm", "failed"}
         item: dict = {}
@@ -101,6 +104,8 @@ class FakeMidsceneClient:
             data = {"state": "need_human", "reason": item.get("reason", "need human")}
         else:
             data = {"state": "failed", "error": item.get("error", "failed")}
+        if item.get("usage"):
+            data["usage"] = item["usage"]
         events.append({"seq": len(events), "type": "done", "data": data})
         self._out[task_id] = events
         return {"id": task_id, "state": "queued"}

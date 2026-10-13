@@ -92,8 +92,13 @@ class MidsceneRuntime:
             )
         remaining = max(1, (task.max_steps or 40) - (task.steps_used or 0))
         self._emit(task, "worker_submit", {"worker_task_id": worker_id})
+        budget = None
+        if task.max_cost_cny is not None:
+            budget = max(0.0, task.max_cost_cny - (task.cost_cny or 0.0))
         await self.client.submit(task_id=worker_id, device_serial=serial, goal=task.goal,
-                                 max_steps=remaining, context=context)
+                                 max_steps=remaining, context=context, max_cost_cny=budget)
+        self._base_cost = task.cost_cny or 0.0
+        self._last_usage: dict = {}
         started = time.monotonic()
         async for ev in self.client.follow(worker_id):
             kind = ev.get("type")
@@ -101,7 +106,13 @@ class MidsceneRuntime:
             if kind == "step":
                 self._record_step(task, data, started)
                 started = time.monotonic()
+            elif kind == "usage":
+                self._record_usage(task, data)
+            elif kind == "guard":
+                self._emit(task, "guard", {"reason": data.get("reason")})
             elif kind == "done":
+                if data.get("usage"):
+                    self._record_usage(task, data["usage"])
                 await self._finish(task, data)
                 return
         current = self.store.require_task(task.id)
@@ -123,6 +134,27 @@ class MidsceneRuntime:
         self.store.save_task(task)
         self.metrics.inc("slash_task_steps_total")
         self._emit(task, "step", {"idx": idx, "action": data.get("action"), "phase": phase})
+
+    def _record_usage(self, task: TaskRow, usage: dict) -> None:
+        """Worker usage is cumulative per worker task; store deltas on the latest step."""
+        prev = self._last_usage or {}
+        if usage.get("total_tokens") == prev.get("total_tokens"):
+            return
+        delta = {k: (usage.get(k) or 0) - (prev.get(k) or 0)
+                 for k in ("calls", "prompt_tokens", "completion_tokens", "total_tokens", "cost_cny")}
+        self._last_usage = dict(usage)
+        task = self.store.require_task(task.id)
+        task.cost_cny = round(self._base_cost + float(usage.get("cost_cny") or 0.0), 5)
+        self.store.save_task(task)
+        steps = self.store.list_steps(task.id)
+        if steps:
+            last = steps[-1]
+            old = json.loads(last.llm_usage_json or "{}")
+            merged = {k: round((old.get(k) or 0) + v, 5) for k, v in delta.items()}
+            last.llm_usage_json = json.dumps(merged)
+            self.store.save_step(last)
+        self.metrics.inc("slash_llm_tokens_total", delta["total_tokens"])
+        self._emit(task, "usage", {**usage, "task_cost_cny": task.cost_cny})
 
     async def _finish(self, task: TaskRow, data: dict) -> None:
         task = self.store.require_task(task.id)

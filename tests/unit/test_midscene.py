@@ -149,3 +149,34 @@ def test_user_takeover_of_running_task(world):
     final = asyncio.run(scenario())
     assert final.status == TaskStatus.NEED_HUMAN.value
     assert final.takeover_url
+
+
+def test_usage_fills_cost_and_step_usage(world):
+    from fastapi.testclient import TestClient
+
+    from slash.api.app import create_app
+
+    usage = {"calls": 3, "prompt_tokens": 30000, "completion_tokens": 300, "total_tokens": 30300, "cost_cny": 0.0945}
+    ctx = world(actions=[{"type": "done", "success": True, "result": "ok", "usage": usage}], max_cost_cny=1.0)
+    client = TestClient(create_app(ctx, start_background=False))
+    headers = {"Authorization": "Bearer test-token"}
+    device = client.post("/api/v1/devices", headers=headers, json={"name": "u1"}).json()
+    task = client.post("/api/v1/tasks", headers=headers, json={"device_id": device["id"], "goal": "g"}).json()
+    assert task["status"] == "SUCCEEDED"
+    assert abs(task["cost_cny"] - 0.0945) < 1e-9
+    assert ctx.worker.submitted[0]["max_cost_cny"] == 1.0
+    step = ctx.store.list_steps(task["id"])[-1]
+    assert json.loads(step.llm_usage_json)["total_tokens"] == 30300
+
+
+def test_budget_failure_from_worker_maps_to_failed(world):
+    from fastapi.testclient import TestClient
+
+    from slash.api.app import create_app
+
+    ctx = world(actions=[{"state": "failed", "error": "budget exceeded: ¥0.6 > max_cost_cny ¥0.5"}])
+    client = TestClient(create_app(ctx, start_background=False))
+    headers = {"Authorization": "Bearer test-token"}
+    device = client.post("/api/v1/devices", headers=headers, json={"name": "u1"}).json()
+    task = client.post("/api/v1/tasks", headers=headers, json={"device_id": device["id"], "goal": "g"}).json()
+    assert task["status"] == "FAILED" and "budget" in task["error"]

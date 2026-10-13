@@ -1,4 +1,9 @@
-import json,subprocess,sys,time,os
+import json
+import os
+import subprocess
+import sys
+import time
+
 sys.path.insert(0,'/workspace/slash/eval'); import aosp_tasks as T
 os.makedirs('results',exist_ok=True)
 def airsetup(): T.sh("cmd connectivity airplane-mode disable"); T.sh("settings put global airplane_mode_on 0")

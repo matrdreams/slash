@@ -3,11 +3,13 @@
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
+import { guardActions, collectUsage, costOf, SensitiveActionBlocked, type Usage } from './guard.js';
 
 export type TaskState = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'need_human';
 export interface WorkerEvent { seq: number; type: string; ts: number; data: Record<string, unknown> }
 export interface WorkerTask {
-  id: string; device_serial: string; goal: string; max_steps?: number; context?: string;
+  id: string; device_serial: string; goal: string; max_steps?: number; context?: string; max_cost_cny?: number; allow_sensitive?: string[];
+  usage?: Usage; budget_exceeded?: boolean;
   state: TaskState; result?: string; error?: string; report_path?: string; need_human_reason?: string;
   events: WorkerEvent[]; abort: AbortController; listeners: Set<(e: WorkerEvent) => void>;
 }
@@ -26,16 +28,35 @@ function emit(t: WorkerTask, type: string, data: Record<string, unknown> = {}) {
 }
 function finish(t: WorkerTask, state: TaskState, extra: Partial<WorkerTask> = {}) {
   Object.assign(t, extra); t.state = state;
-  emit(t, 'done', { state, result: t.result, error: t.error, report_path: t.report_path, reason: t.need_human_reason });
+  emit(t, 'done', { state, result: t.result, error: t.error, report_path: t.report_path, reason: t.need_human_reason, usage: t.usage });
 }
 
 const SENSITIVE_HINT = 'If the next step would pay money, transfer funds, delete data, send a message to others, or enter a password/verification code, or a login/captcha/QR scan is required, do NOT do it: call the RequestHuman action with a reason instead.';
+
+function trackUsage(t: WorkerTask, u: Usage) {
+  const prev = t.usage?.total_tokens ?? 0;
+  t.usage = u;
+  if (u.total_tokens !== prev) emit(t, 'usage', { ...u });
+  if (t.max_cost_cny != null && u.cost_cny > t.max_cost_cny && !t.budget_exceeded) {
+    t.budget_exceeded = true;
+    t.error = `budget exceeded: ¥${u.cost_cny} > max_cost_cny ¥${t.max_cost_cny}`;
+    t.abort.abort();
+  }
+}
 
 async function runMock(t: WorkerTask) {
   const steps = Math.min(t.max_steps ?? 3, 3);
   for (let i = 0; i < steps; i++) {
     if (t.abort.signal.aborted) throw new Error('aborted');
-    emit(t, 'step', { idx: i, phase: 'action_done', action: { name: i === 0 ? 'Launch' : 'Tap', target: `mock-${i}` } });
+    const target = /\[tap:([^\]]+)\]/.exec(t.goal)?.[1] ?? `mock-${i}`;
+    const name = i === 0 ? 'Launch' : 'Tap';
+    const [act] = guardActions([{ name, call: async (_p: any) => undefined }], t.allow_sensitive || []);
+    await act.call({ locate: { prompt: target } });
+    emit(t, 'step', { idx: i, phase: 'action_done', action: { name, target } });
+    const per = Number(/\[usage:(\d+)\]/.exec(t.goal)?.[1] ?? 1000);
+    const pt = per * (i + 1), ct = Math.round(per / 100) * (i + 1);
+    trackUsage(t, { calls: i + 1, prompt_tokens: pt, completion_tokens: ct, total_tokens: pt + ct, cost_cny: costOf(pt, ct) });
+    if (t.abort.signal.aborted) throw new Error('aborted');
     await new Promise((r) => setTimeout(r, Number(process.env.MIDSCENE_WORKER_MOCK_DELAY_MS || 20)));
   }
   if (t.goal.includes('[need_human]')) throw new NeedHuman('mock: login required');
@@ -57,7 +78,11 @@ async function runReal(t: WorkerTask) {
     paramSchema: z.object({ reason: z.string().describe('why a human is needed') }),
     call: async (p: { reason: string }) => { throw new NeedHuman(p?.reason || 'need human'); },
   });
-  const device = new AndroidDevice(t.device_serial, {
+  class GuardedDevice extends AndroidDevice {
+    actionSpace() { return guardActions(super.actionSpace() as any[], t.allow_sensitive || [],
+      (r) => emit(t, 'guard', { reason: r })) as any; }
+  }
+  const device = new GuardedDevice(t.device_serial, {
     imeStrategy: (process.env.MIDSCENE_IME_STRATEGY as any) || 'yadb-for-non-ascii',
     customActions: [requestHuman],
   } as any);
@@ -76,11 +101,13 @@ async function runReal(t: WorkerTask) {
       const d = ev.data || {};
       emit(t, 'step', { idx: idx++, phase: ev.phase, action: d.action ?? d.actions ?? null, thought: d.thought ?? d.log ?? undefined });
     }
+    try { trackUsage(t, collectUsage((agent as any).dump)); } catch { /* ignore */ }
   });
   try {
     const out = await agent.aiAct(t.goal, { abortSignal: t.abort.signal } as any);
     return typeof out === 'string' ? out : 'done';
   } finally {
+    try { trackUsage(t, collectUsage((agent as any).dump)); } catch { /* ignore */ }
     t.report_path = (agent as any).reportFile;
     try { await agent.destroy(); } catch { /* ignore */ }
   }
@@ -89,6 +116,7 @@ async function runReal(t: WorkerTask) {
 function findNeedHuman(e: any, depth = 0): NeedHuman | undefined {
   if (!e || depth > 5) return;
   if (e instanceof NeedHuman) return e;
+  if (e instanceof SensitiveActionBlocked) return new NeedHuman(e.reason);
   const m = /need_human: (.*)/.exec(String(e?.message || ''));
   if (m) return new NeedHuman(m[1].split('\n')[0]);
   return findNeedHuman(e.cause, depth + 1);
@@ -99,9 +127,11 @@ async function execute(t: WorkerTask) {
   t.state = 'running'; emit(t, 'status', { state: 'running' });
   try {
     const result = await (MOCK ? runMock(t) : runReal(t));
+    if (t.budget_exceeded) return finish(t, 'failed');
     if (t.abort.signal.aborted) return finish(t, 'cancelled');
     finish(t, 'succeeded', { result });
   } catch (e: any) {
+    if (t.budget_exceeded) return finish(t, 'failed');
     if (t.abort.signal.aborted) return finish(t, 'cancelled');
     const nh = findNeedHuman(e);
     if (nh) return finish(t, 'need_human', { need_human_reason: nh.reason });
@@ -115,7 +145,8 @@ export function submit(body: any): WorkerTask {
   if (tasks.has(id) && !['succeeded', 'failed', 'cancelled', 'need_human'].includes(tasks.get(id)!.state))
     throw Object.assign(new Error('task already active'), { status: 409 });
   const t: WorkerTask = { id, device_serial: String(body.device_serial), goal: String(body.goal), max_steps: body.max_steps,
-    context: body.context, state: 'queued', events: [], abort: new AbortController(), listeners: new Set() };
+    context: body.context, max_cost_cny: body.max_cost_cny ?? undefined, allow_sensitive: body.allow_sensitive,
+    state: 'queued', events: [], abort: new AbortController(), listeners: new Set() };
   tasks.set(id, t);
   emit(t, 'status', { state: 'queued' });
   // serialize per device
