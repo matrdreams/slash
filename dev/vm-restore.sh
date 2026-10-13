@@ -27,10 +27,11 @@ if [[ ! -f $DISK ]]; then
   exec env APK="$WORKDIR/ADBKeyboard.apk" "$ROOT/qemu/post-boot.sh" "127.0.0.1:$ADB_PORT"
 fi
 cd "$WORKDIR"
+# Cached disk has the redroid container stopped (docker stop before snapshot); the seed restarts it.
 # Private ssh key is never cached; make a fresh one and inject via a new cloud-init instance.
 if [[ ! -f vmkey || ! -f restore-seed.img ]]; then
   [[ -f vmkey ]] || ssh-keygen -q -t ed25519 -N '' -f vmkey
-  printf '#cloud-config\nusers:\n  - name: ubuntu\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    ssh_authorized_keys: ["%s"]\n' "$(cat vmkey.pub)" > restore-user-data
+  printf '#cloud-config\nusers:\n  - name: ubuntu\n    sudo: ALL=(ALL) NOPASSWD:ALL\n    ssh_authorized_keys: ["%s"]\nruncmd:\n  - docker update --restart always redroid\n  - docker start redroid\n' "$(cat vmkey.pub)" > restore-user-data
   printf 'instance-id: slash-restore-%s\nlocal-hostname: slash\n' "$(date +%s)" > restore-meta-data
   cloud-localds restore-seed.img restore-user-data restore-meta-data
 fi
